@@ -17,7 +17,7 @@ typedef std::vector<char> Annotation_Type;
 #define myFloatIntPairLessThan_
 
 struct myFloatIntPairLessThan {
-    bool operator()(const std::pair<float, int> &lhs, const std::pair<float, int> &rhs) {
+    bool operator()(const std::pair<float, int> &lhs, const std::pair<float, int> &rhs) const {
         bool ret = false;
         if (lhs.first < rhs.first)
             ret = true;
@@ -32,7 +32,7 @@ struct myFloatIntPairLessThan {
 #endif
 
 struct Annotation_Type_LessThan {
-    bool operator()(const Annotation_Type &lhs, const Annotation_Type &rhs) {
+    bool operator()(const Annotation_Type &lhs, const Annotation_Type &rhs) const {
         bool ret = false;
         for (unsigned int i = 0; i < lhs.size(); i++) {
             if (lhs[i] < rhs[i]) {

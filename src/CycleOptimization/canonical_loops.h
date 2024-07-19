@@ -14,7 +14,7 @@
 #ifndef myFloatIntPairLessThan_
 #define myFloatIntPairLessThan_
 struct myFloatIntPairLessThan {
-    bool operator()(const std::pair<float, int> &lhs, const std::pair<float, int> &rhs)
+    bool operator()(const std::pair<float, int> &lhs, const std::pair<float, int> &rhs) const
     {
         bool ret = false;
         if (lhs.first < rhs.first)

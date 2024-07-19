@@ -12,7 +12,7 @@
 class NonOverlappingCycles {
     struct doubleIntLessThan {
         bool operator()(const std::pair<double, std::pair<std::pair<int, int>, int> > &lhs,
-                        const std::pair<double, std::pair<std::pair<int, int>, int> > &rhs) {
+                        const std::pair<double, std::pair<std::pair<int, int>, int> > &rhs) const {
             bool ret = false;
             if (lhs.first < rhs.first)
                 ret = true;
