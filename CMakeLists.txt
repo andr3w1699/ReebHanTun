@@ -3,3 +3,5 @@ project (ReebHanTun)
 
 add_subdirectory(ann)
 add_subdirectory( src )
+add_subdirectory( vcglib )
+add_subdirectory( vcgtest )
