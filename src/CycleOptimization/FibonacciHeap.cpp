@@ -9,333 +9,367 @@
 #include "FibonacciHeap.h"
 #include <vector>
 
-namespace FibonacciHeap {
-    Edge::~Edge() {
-        tail = head = NULL;
-    }
+namespace FibonacciHeap
+{
+	Edge::~Edge()
+	{
+		tail = head = NULL;
+	}
+	Edge::Edge()
+	{
+		tail = head = NULL;
+		length = 0.0;
+		delta = 0.0;
+	}
+	Edge::Edge(const Edge& rhs)
+	{
+		tail = rhs.tail;
+		head = rhs.head;
+		length = rhs.length;
+		delta = rhs.delta;
+	}
+	Edge& Edge::operator=(const Edge& rhs)
+	{
+		tail = rhs.tail;
+		head = rhs.head;
+		length = rhs.length;
+		delta = rhs.delta;
+		return *this;			
+	}
+	// =========================================================================
+	//	Implementation of class Edge
+	// =========================================================================
+	Edge::Edge(Node* tail, Node* head, FIB_real_type length)
+	{
+		this->tail = tail;
+		this->head = head;
+		this->length = length;
+	}
+	/**************************/
+	Node::~Node()
+	{
+		parent = NULL;
+		leftSibling = NULL;
+		rightSibling = NULL;
+		children = NULL;
+		pred = NULL;
+		incomingEdges.clear();
+		outgoingEdges.clear();
+	}
+	Node::Node(const Node& rhs)
+	{
+		data = rhs.data;
+		key = rhs.key;
+		rank = rhs.rank;
+		//
+		color = rhs.color;
+		index = rhs.index;
+		//
+		state = rhs.state;
+		//
+		parent = rhs.parent;
+		leftSibling = rhs.leftSibling;
+		rightSibling = rhs.rightSibling;
+		children = rhs.children;
+		pred = rhs.pred;
+		incomingEdges.assign(rhs.incomingEdges.begin(), rhs.incomingEdges.end());
+		outgoingEdges.assign(rhs.outgoingEdges.begin(), rhs.outgoingEdges.end());
+	}
+	Node& Node::operator=(const Node& rhs)
+	{
+		data = rhs.data;
+		key = rhs.key;
+		rank = rhs.rank;
+		//
+		color = rhs.color;
+		index = rhs.index;
+		//
+		state = rhs.state;
+		//
+		parent = rhs.parent;
+		leftSibling = rhs.leftSibling;
+		rightSibling = rhs.rightSibling;
+		children = rhs.children;
+		pred = rhs.pred;
+		incomingEdges.assign(rhs.incomingEdges.begin(), rhs.incomingEdges.end());
+		outgoingEdges.assign(rhs.outgoingEdges.begin(), rhs.outgoingEdges.end());
+		return *this;
+	}
+	// =========================================================================
+	//	Implementation of class Node
+	// =========================================================================
 
-    Edge::Edge() {
-        tail = head = NULL;
-        length = 0.0;
-        delta = 0.0;
-    }
+	Node::Node(int data, FIB_real_type key)
+	{
+		this->key = key;
+		this->data = data;
+		parent = NULL;
+		children = NULL;
+		leftSibling = NULL;
+		rightSibling = NULL;
+		pred = NULL;
+		rank = 0;
+		state = UNLABELED;
+		color = -1;
+	}
 
-    Edge::Edge(const Edge &rhs) {
-        tail = rhs.tail;
-        head = rhs.head;
-        length = rhs.length;
-        delta = rhs.delta;
-    }
+	Node::Node()
+	{
+		parent = NULL;
+		children = NULL;
+		leftSibling = NULL;
+		rightSibling = NULL;
+		pred = NULL;
+		rank = 0;
+		state = UNLABELED;
+		key = 0;
+		color = -1;
+	}
 
-    Edge &Edge::operator=(const Edge &rhs) {
-        tail = rhs.tail;
-        head = rhs.head;
-        length = rhs.length;
-        delta = rhs.delta;
-        return *this;
-    }
+	bool Node::addChild(Node *node)
+	{
+		if(children != NULL)
+			children->addSibling(node);
+		else
+		{
+			children = node;
+			node->parent = this;
+			rank = 1;
+		}
 
-    // =========================================================================
-    //	Implementation of class Edge
-    // =========================================================================
-    Edge::Edge(Node *tail, Node *head, FIB_real_type length) {
-        this->tail = tail;
-        this->head = head;
-        this->length = length;
-    }
+		return true;
+	}
 
-    /**************************/
-    Node::~Node() {
-        parent = NULL;
-        leftSibling = NULL;
-        rightSibling = NULL;
-        children = NULL;
-        pred = NULL;
-        incomingEdges.clear();
-        outgoingEdges.clear();
-    }
+	bool Node::addSibling(Node *node)
+	{
+		Node* temp = rightMostSibling();
+		if(temp == NULL)
+			return false;
 
-    Node::Node(const Node &rhs) {
-        data = rhs.data;
-        key = rhs.key;
-        rank = rhs.rank;
-        //
-        color = rhs.color;
-        index = rhs.index;
-        //
-        state = rhs.state;
-        //
-        parent = rhs.parent;
-        leftSibling = rhs.leftSibling;
-        rightSibling = rhs.rightSibling;
-        children = rhs.children;
-        pred = rhs.pred;
-        incomingEdges.assign(rhs.incomingEdges.begin(), rhs.incomingEdges.end());
-        outgoingEdges.assign(rhs.outgoingEdges.begin(), rhs.outgoingEdges.end());
-    }
+		temp->rightSibling = node;
+		node->leftSibling = temp;
+		node->parent = this->parent;
+		node->rightSibling = NULL;
 
-    Node &Node::operator=(const Node &rhs) {
-        data = rhs.data;
-        key = rhs.key;
-        rank = rhs.rank;
-        //
-        color = rhs.color;
-        index = rhs.index;
-        //
-        state = rhs.state;
-        //
-        parent = rhs.parent;
-        leftSibling = rhs.leftSibling;
-        rightSibling = rhs.rightSibling;
-        children = rhs.children;
-        pred = rhs.pred;
-        incomingEdges.assign(rhs.incomingEdges.begin(), rhs.incomingEdges.end());
-        outgoingEdges.assign(rhs.outgoingEdges.begin(), rhs.outgoingEdges.end());
-        return *this;
-    }
-    // =========================================================================
-    //	Implementation of class Node
-    // =========================================================================
+		if(parent)
+			parent->rank++;
 
-    Node::Node(int data, FIB_real_type key) {
-        this->key = key;
-        this->data = data;
-        parent = NULL;
-        children = NULL;
-        leftSibling = NULL;
-        rightSibling = NULL;
-        pred = NULL;
-        rank = 0;
-        state = UNLABELED;
-        color = -1;
-    }
+		return true;
+	}
 
-    Node::Node() {
-        parent = NULL;
-        children = NULL;
-        leftSibling = NULL;
-        rightSibling = NULL;
-        pred = NULL;
-        rank = 0;
-        state = UNLABELED;
-        key = 0;
-        color = -1;
-    }
+	bool Node::remove()
+	{
+		if(parent)
+		{
+			parent->rank--;
+			if(leftSibling)
+				parent->children = leftSibling;
+			else if(rightSibling)
+				parent->children = rightSibling;
+			else
+				parent->children = NULL;
+		}	
+		
+		if(leftSibling)
+			leftSibling->rightSibling = rightSibling;
+		if(rightSibling)
+			rightSibling->leftSibling = leftSibling;
+		
+		leftSibling = NULL;
+		rightSibling = NULL;
+		parent = NULL;
 
-    bool Node::addChild(Node *node) {
-        if (children != NULL)
-            children->addSibling(node);
-        else {
-            children = node;
-            node->parent = this;
-            rank = 1;
-        }
+		return true;
+	}
 
-        return true;
-    }
+	void Node::addIncomingEdge(Edge * edge)
+	{
+		incomingEdges.push_back(edge);
+	}
 
-    bool Node::addSibling(Node *node) {
-        Node *temp = rightMostSibling();
-        if (temp == NULL)
-            return false;
-
-        temp->rightSibling = node;
-        node->leftSibling = temp;
-        node->parent = this->parent;
-        node->rightSibling = NULL;
-
-        if (parent)
-            parent->rank++;
-
-        return true;
-    }
-
-    bool Node::remove() {
-        if (parent) {
-            parent->rank--;
-            if (leftSibling)
-                parent->children = leftSibling;
-            else if (rightSibling)
-                parent->children = rightSibling;
-            else
-                parent->children = NULL;
-        }
-
-        if (leftSibling)
-            leftSibling->rightSibling = rightSibling;
-        if (rightSibling)
-            rightSibling->leftSibling = leftSibling;
-
-        leftSibling = NULL;
-        rightSibling = NULL;
-        parent = NULL;
-
-        return true;
-    }
-
-    void Node::addIncomingEdge(Edge *edge) {
-        incomingEdges.push_back(edge);
-    }
-
-    void Node::addOutgoingEdge(Edge *edge) {
-        outgoingEdges.push_back(edge);
-    }
-
-
-    Node *Node::leftMostSibling() {
-        if (this == NULL)
-            return NULL;
-
-        Node *temp = this;
-        while (temp->leftSibling)
-            temp = temp->leftSibling;
-        return temp;
-    }
-
-    Node *Node::rightMostSibling() {
-        if (this == NULL)
-            return NULL;
-
-        Node *temp = this;
-        while (temp->rightSibling)
-            temp = temp->rightSibling;
-        return temp;
-    }
-
-    // =========================================================================
-    //	Implementation of class Fibonacci Heap
-    // =========================================================================
+	void Node::addOutgoingEdge(Edge * edge)
+	{
+		outgoingEdges.push_back(edge);
+	}
 
 
-    FibonacciHeap::FibonacciHeap() {
-        minRoot = NULL;
-    }
+	Node* Node::leftMostSibling()
+	{
+		if(this == NULL)
+			return NULL;
 
-    FibonacciHeap::FibonacciHeap(Node *root) {
-        this->minRoot = root;
-        minRoot->parent = NULL;
-        minRoot->children = NULL;
-        minRoot->leftSibling = NULL;
-        minRoot->rightSibling = NULL;
-        minRoot->rank = 0;
-    }
+		Node* temp = this;
+		while(temp->leftSibling)
+			temp = temp->leftSibling;
+		return temp;
+	}
 
-    FibonacciHeap::~FibonacciHeap() {
-        delete[] rootListByRank;
-    }
+	Node* Node::rightMostSibling()
+	{
+		if(this == NULL)
+			return NULL;
 
-    bool FibonacciHeap::isEmpty() {
-        return (minRoot == NULL);
-    }
+		Node* temp = this;
+		while(temp->rightSibling)
+			temp = temp->rightSibling;
+		return temp;
+	}
 
-    bool FibonacciHeap::insertVertex(Node *node) {
-        if (node == NULL)
-            return false;
-
-        if (minRoot == NULL)
-            minRoot = node;
-        else {
-            minRoot->addSibling(node);
-            if (minRoot->key > node->key)
-                minRoot = node;
-        }
-        return true;
-    }
-
-    Node *FibonacciHeap::findMin() {
-        return minRoot;
-    }
-
-    Node *FibonacciHeap::deleteMin() {
-        Node *temp = minRoot->children->leftMostSibling();
-        Node *nextTemp = NULL;
-
-        // Adding Children to root list
-        while (temp != NULL) {
-            nextTemp = temp->rightSibling; // Save next Sibling
-            temp->remove();
-            minRoot->addSibling(temp);
-            temp = nextTemp;
-        }
-
-        // Select the left-most sibling of minRoot
-        temp = minRoot->leftMostSibling();
-
-        // Remove minRoot and set it to any sibling, if there exists one
-        if (temp == minRoot) {
-            if (minRoot->rightSibling)
-                temp = minRoot->rightSibling;
-            else {
-                // Heap is obviously empty
-                Node *out = minRoot;
-                minRoot->remove();
-                minRoot = NULL;
-                return out;
-            }
-        }
-        Node *out = minRoot;
-        minRoot->remove();
-        minRoot = temp;
-
-        // Initialize list of roots
-        for (int i = 0; i < 100; i++)
-            rootListByRank[i] = NULL;
-
-        while (temp) {
-            // Check if key of current vertex is smaller than the key of minRoot
-            if (temp->key < minRoot->key) {
-                minRoot = temp;
-            }
-
-            nextTemp = temp->rightSibling;
-            link(temp);
-            temp = nextTemp;
-        }
-
-        return out;
-    }
-
-    bool FibonacciHeap::link(Node *root) {
-        // Insert Vertex into root list
-        if (rootListByRank[root->rank] == NULL) {
-            rootListByRank[root->rank] = root;
-            return false;
-        } else {
-            // Link the two roots
-            Node *linkVertex = rootListByRank[root->rank];
-            rootListByRank[root->rank] = NULL;
-
-            if (root->key < linkVertex->key || root == minRoot) {
-                linkVertex->remove();
-                root->addChild(linkVertex);
-                if (rootListByRank[root->rank] != NULL)
-                    link(root);
-                else
-                    rootListByRank[root->rank] = root;
-            } else {
-                root->remove();
-                linkVertex->addChild(root);
-                if (rootListByRank[linkVertex->rank] != NULL)
-                    link(linkVertex);
-                else
-                    rootListByRank[linkVertex->rank] = linkVertex;
-            }
-            return true;
-        }
-    }
+	// =========================================================================
+	//	Implementation of class Fibonacci Heap
+	// =========================================================================
 
 
-    void FibonacciHeap::decreaseKey(FIB_real_type delta, Node *vertex) {
-        vertex->key = delta;
+	FibonacciHeap::FibonacciHeap()
+	{
+		minRoot = NULL;
+	}
 
-        if (vertex->parent != NULL) // The vertex has a parent
-        {
-            // Remove vertex and add to root list
-            vertex->remove();
-            minRoot->addSibling(vertex);
-        }
-        // Check if key is smaller than the key of minRoot
-        if (vertex->key < minRoot->key)
-            minRoot = vertex;
-    }
+	FibonacciHeap::FibonacciHeap(Node *root)
+	{
+		this->minRoot = root;
+		minRoot->parent = NULL;
+		minRoot->children = NULL;
+		minRoot->leftSibling = NULL;
+		minRoot->rightSibling = NULL;
+		minRoot->rank = 0;
+	}
+
+	FibonacciHeap::~FibonacciHeap()
+	{
+//		delete[] rootListByRank;
+	}
+
+	bool FibonacciHeap::isEmpty()
+	{
+		return (minRoot == NULL);
+	}
+
+	bool FibonacciHeap::insertVertex(Node * node)
+	{
+		if(node == NULL)
+			return false;
+
+		if(minRoot == NULL)
+			minRoot = node;
+		else
+		{
+			minRoot->addSibling(node);
+			if(minRoot->key > node->key)
+				minRoot = node;
+		}
+		return true;
+	}
+
+	Node* FibonacciHeap::findMin()
+	{
+		return minRoot;
+	}
+
+	Node* FibonacciHeap::deleteMin()
+	{
+		Node *temp = minRoot->children->leftMostSibling();
+		Node *nextTemp = NULL;
+
+		// Adding Children to root list		
+		while(temp != NULL)
+		{
+			nextTemp = temp->rightSibling; // Save next Sibling
+			temp->remove();
+			minRoot->addSibling(temp);
+			temp = nextTemp;
+		}
+
+		// Select the left-most sibling of minRoot
+		temp = minRoot->leftMostSibling();
+
+		// Remove minRoot and set it to any sibling, if there exists one
+		if(temp == minRoot)
+		{
+			if(minRoot->rightSibling)
+				temp = minRoot->rightSibling;
+			else
+			{
+				// Heap is obviously empty
+				Node* out = minRoot;
+				minRoot->remove();
+				minRoot = NULL;
+				return out;
+			}
+		}
+		Node* out = minRoot;
+		minRoot->remove();
+		minRoot = temp;
+
+		// Initialize list of roots	
+		for(int i=0; i<100; i++)
+			rootListByRank[i] = NULL;
+		
+		while(temp)
+		{
+			// Check if key of current vertex is smaller than the key of minRoot
+			if(temp->key < minRoot->key)
+			{
+				minRoot = temp;
+			}
+
+			nextTemp = temp->rightSibling;		
+			link(temp);
+			temp = nextTemp;
+		}
+
+		return out;	
+	}
+
+	bool FibonacciHeap::link(Node* root)
+	{
+		// Insert Vertex into root list
+		if(rootListByRank[root->rank] == NULL)
+		{
+			rootListByRank[root->rank] = root;
+			return false;
+		}
+		else
+		{
+			// Link the two roots
+			Node* linkVertex = rootListByRank[root->rank];
+			rootListByRank[root->rank] = NULL;
+			
+			if(root->key < linkVertex->key || root == minRoot)
+			{
+				linkVertex->remove();
+				root->addChild(linkVertex);
+				if(rootListByRank[root->rank] != NULL)
+					link(root);
+				else
+					rootListByRank[root->rank] = root;
+			}
+			else
+			{
+				root->remove();
+				linkVertex->addChild(root);
+				if(rootListByRank[linkVertex->rank] != NULL)
+					link(linkVertex);
+				else
+					rootListByRank[linkVertex->rank] = linkVertex;
+			}
+			return true;
+		}
+	}
+
+
+	void FibonacciHeap::decreaseKey(FIB_real_type delta, Node* vertex)
+	{
+		vertex->key = delta;
+
+		if(vertex->parent != NULL) // The vertex has a parent
+		{
+			// Remove vertex and add to root list
+			vertex->remove();
+			minRoot->addSibling(vertex);		
+		}
+		// Check if key is smaller than the key of minRoot
+		if(vertex->key < minRoot->key)
+			minRoot = vertex;
+	}
 };
