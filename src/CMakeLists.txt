@@ -1,5 +1,5 @@
 #set(CMAKE_CXX_FLAGS "-lboost_program_options")
-include_directories( ${CMAKE_SOURCE_DIR}/src "${CMAKE_SOURCE_DIR}/src/include" "${CMAKE_SOURCE_DIR}/src/CycleOptimization" "${CMAKE_SOURCE_DIR}/src/CycleOptimization/Annotation") 
+include_directories( ${CMAKE_SOURCE_DIR}/src "${CMAKE_SOURCE_DIR}/src/include" "${CMAKE_SOURCE_DIR}/src/CycleOptimization" "${CMAKE_SOURCE_DIR}/src/CycleOptimization/Annotation" "${CMAKE_SOURCE_DIR}/ann/") 
 link_directories( ${CMAKE_SOURCE_DIR}/src/lib) 
 # ADD library directory for ANN lib
 link_directories( ${CMAKE_SOURCE_DIR}/ANN/lib)
