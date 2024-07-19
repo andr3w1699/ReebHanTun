@@ -2,3 +2,5 @@
 build/
 cmake-build-debug/
 ANN/
+.DS_Store
+CMakeLists.txt.user
