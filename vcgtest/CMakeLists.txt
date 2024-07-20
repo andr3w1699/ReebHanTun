@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 project ( vcgtest )
 
-include_directories(${CMAKE_SOURCE_DIR}/vcglib)
+include_directories(${CMAKE_SOURCE_DIR}/vcglib ${CMAKE_SOURCE_DIR}/src)
 
 add_executable(vcgtest main.cpp)
 
