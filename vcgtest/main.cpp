@@ -1,10 +1,16 @@
 #include<stdio.h>
 #include<vcg/complex/complex.h>
+#include <vcg/space/point3.h>
+#include <vcg/complex/algorithms/update/normal.h>
+#include <vcg/complex/algorithms/update/bounding.h>
 // input output
 #include <wrap/io_trimesh/import.h>
 #include<wrap/io_trimesh/export_off.h>
 // mesh ReebHanTun
 #include<SimpleMesh.h>
+
+using namespace vcg;
+using namespace std;
 
 class MyVertex;
 class MyEdge;
@@ -67,6 +73,33 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
 
     rht_mesh.vecTriangle[i] = _SimpleMeshTriangle(v0, v1, v2, e01, e12, e02);
 }
+}
+
+void ReverseMeshCoverter(const _SimpleMesh &input_mesh, MyMesh &output_mesh){
+
+    // Add vertices to the mesh
+    for(auto& p : input_mesh.vecVertex) {
+        MyMesh::VertexType v;
+        vcg::Point3<float> point = vcg::Point3<float>(p.x, p.y, p.z);
+        v.P() = point;
+        output_mesh.vert.push_back(v);
+    }
+    output_mesh.vn = output_mesh.vert.size();
+
+    // Add faces to the mesh 
+    for(auto& tri: input_mesh.vecTriangle) {
+        MyMesh::FaceType f;
+        f.V(0) = &output_mesh.vert[tri.v0];
+        f.V(1) = &output_mesh.vert[tri.v1];
+        f.V(2) = &output_mesh.vert[tri.v2];
+        output_mesh.face.push_back(f);
+    }
+    output_mesh.fn = output_mesh.face.size();
+
+    // Update the normals and bounding box
+    tri::UpdateNormal<MyMesh>::PerFaceNormalized(output_mesh);
+    tri::UpdateNormal<MyMesh>::PerVertexNormalized(output_mesh);
+    tri::UpdateBounding<MyMesh>::Box(output_mesh);
 
 }
 
@@ -126,6 +159,9 @@ int main(int argc, char **argv)  {
    m_rht.SetMeshNormalPtr(&meshNormal);
    PrintSimpleMesh(m_rht);
 
-  vcg::tri::io::ExporterOFF<MyMesh>::Save(m_vcg,"test.off");
+   MyMesh test;
+   ReverseMeshCoverter(m_rht, test);
+ 
+  vcg::tri::io::ExporterOFF<MyMesh>::Save(test,"test.off");
   return 0;
 }
