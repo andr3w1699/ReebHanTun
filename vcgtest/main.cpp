@@ -75,7 +75,13 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
 }
 }
 
-void ReverseMeshCoverter(const _SimpleMesh &input_mesh, MyMesh &output_mesh){
+/* Function to performe the inverse of MeshConverter operation 
+* @param : _SimpleMesh &input_mesh reference to a ReebHanThun mesh 
+* @param : MyMesh &output_mesh reference to a vcg lib mesh to store the result of the conversion
+* @result : output_mesh will be modified to store input_mesh converted in a vcg mesh
+            do not modify input_mesh
+*/
+void ReverseMeshConverter(const _SimpleMesh &input_mesh, MyMesh &output_mesh){
 
     // Add vertices to the mesh
     for(auto& p : input_mesh.vecVertex) {
@@ -127,6 +133,8 @@ void PrintSimpleMesh(const _SimpleMesh &mesh) {
 }
 
 
+
+
 int main(int argc, char **argv)  {
     printf("prova\n");
     // definition of type MyMesh -- VCG lib
@@ -156,11 +164,15 @@ int main(int argc, char **argv)  {
   // convert the vcg mesh in reebhantun _SimpleMesh
 
    MeshConverter(m_vcg, m_rht);
+   
+   // The mesh is in the right format 
+   // Start ReebHanTun business
    m_rht.SetMeshNormalPtr(&meshNormal);
-   PrintSimpleMesh(m_rht);
+   //PrintSimpleMesh(m_rht);
+
 
    MyMesh test;
-   ReverseMeshCoverter(m_rht, test);
+   ReverseMeshConverter(m_rht, test);
  
   vcg::tri::io::ExporterOFF<MyMesh>::Save(test,"test.off");
   return 0;
