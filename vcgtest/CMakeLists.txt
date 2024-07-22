@@ -69,7 +69,9 @@ add_executable( vcgtest
 				../src/SimpleMesh.h 
 				../src/UniqueDirection.cpp
 				../src/UniqueDirection.h 
-				../src/RenderVector3.h)
+				../src/RenderVector3.h
+				../vcglib/wrap/ply/plylib.cpp
+				)
 
 target_link_libraries(
 	vcgtest

@@ -6,6 +6,7 @@
 // input output
 #include <wrap/io_trimesh/import.h>
 #include<wrap/io_trimesh/export_off.h>
+#include<wrap/io_trimesh/export_ply.h>
 // mesh ReebHanTun
 #include<SimpleMesh.h>
 
@@ -41,6 +42,8 @@ class MyVertex  : public vcg::Vertex< MyUsedTypes, vcg::vertex::Coord3f, vcg::ve
 class MyEdge : public vcg::Edge<MyUsedTypes> {};
 class MyFace  : public vcg::Face < MyUsedTypes, vcg::face::VertexRef, vcg::face::Normal3f, vcg::face::Color4b, vcg::face::BitFlags, vcg::face::EFAdj > {};
 class MyMesh  : public vcg::tri::TriMesh< std::vector<MyVertex>, std::vector<MyEdge>, std::vector<MyFace> > {};
+
+
 
 bool CheckBoundaries(_SimpleMesh &inMesh, std::vector<std::vector<std::pair<int,int> > > &boundries)
 {
@@ -638,7 +641,54 @@ std::cout << std::endl;
 
     MyMesh test;
     ReverseMeshConverter(m_rht, test);
- 
-  vcg::tri::io::ExporterOFF<MyMesh>::Save(test,"test.off");
+
+  //vcg::tri::io::ExporterOFF<MyMesh>::Save(test,"test.off");
+
+    std::cout << "num edges: " << m_rht.vecEdge.size();
+	std::cout << std::endl; 
+
+	for (const auto& s : v_basis_loops) {
+        for (const auto& elem : s) {
+            std::cout << elem << " ";
+        }
+        std::cout << std::endl;  // Nuova riga dopo ogni set
+    }
+
+	for (const auto& s : h_basis_loops) {
+        for (const auto& elem : s) {
+            std::cout << elem << " ";
+        }
+        std::cout << std::endl;  // Nuova riga dopo ogni set
+    }
+
+   
+
+ MyMesh loops; 
+ for (const auto& s : v_basis_loops) {
+        for (const auto& elem : s) {
+			if(elem > 0 && elem < m_rht.vecEdge.size()) {
+			_SimpleMeshEdge edge = m_rht.vecEdge[elem];
+			int v0 = edge.v0;
+			int v1 = edge.v1;
+			loops.vert.push_back(m_vcg.vert[v0]);
+			loops.vert.push_back(m_vcg.vert[v1]);
+			}                  
+    }
+  }
+
+   for (const auto& s : h_basis_loops) {
+        for (const auto& elem : s) {
+			if(elem > 0 && elem < m_rht.vecEdge.size()) {
+			_SimpleMeshEdge edge = m_rht.vecEdge[elem];
+			int v0 = edge.v0;
+			int v1 = edge.v1;
+			loops.vert.push_back(m_vcg.vert[v0]);
+			loops.vert.push_back(m_vcg.vert[v1]);
+			}                  
+    }
+  }
+  loops.vn = loops.vert.size();
+ // vcg::tri::io::ExporterPLY<MyMesh>::Save(loops,"wallMesh.ply", vcg::tri::io::Mask::IOM_VERTCOLOR); 
+ vcg::tri::io::ExporterOFF<MyMesh>::Save(loops,"loops.off");
   return 0;
 }
