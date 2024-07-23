@@ -385,19 +385,37 @@ void CycleLocalOptimization_bdry(_SimpleMesh &locMesh, psbmReebGraph &reebgraph,
 
 // function to convert a vcg mesh type _SimpleMesh in a reebhantun mesh _SimpleMesh
 
-void MeshConverter (const MyMesh & vcg_mesh,  _SimpleMesh & rht_mesh) {
-
+void MeshConverter (_SimpleMeshVertex &minBd,
+                                      _SimpleMeshVertex &maxBd, const MyMesh & vcg_mesh,  _SimpleMesh & rht_mesh, std::vector<Vector3> &meshNormal, std::vector<int> &OrientTriangles, const float fEnlargeFactor ) {
+std::map<std::pair<int, int>, int, myPairCompare> edgeMapping;
 // vertex conversion 
-
+OrientTriangles.reserve(vcg_mesh.face.size());
 // resize vecVertex of _SimpleMesh to store as many vertex as Mymesh
-rht_mesh.vecVertex.resize(vcg_mesh.vert.size());
+rht_mesh.vecVertex.reserve(vcg_mesh.vert.size());
 for(size_t i = 0; i < vcg_mesh.vert.size(); ++i) {
+	_SimpleMeshVertex tmpVer;
     const MyVertex &v = vcg_mesh.vert[i];
-    rht_mesh.vecVertex[i] = _SimpleMeshVertex(v.P().X(), v.P().Y(), v.P().Z());
+	tmpVer.x = v.P().X() * fEnlargeFactor;
+    tmpVer.y = v.P().Y() * fEnlargeFactor;
+	tmpVer.z = v.P().Z() * fEnlargeFactor;
+	rht_mesh.vecVertex.push_back(tmpVer);
+    if (rht_mesh.vecVertex.size() == 1) {
+       minBd =  tmpVer;
+       maxBd = tmpVer;
+    } else {
+            minBd.x = tmpVer.x < minBd.x ? tmpVer.x : minBd.x;
+            minBd.y = tmpVer.y < minBd.y ? tmpVer.y : minBd.y;
+            minBd.z = tmpVer.z < minBd.z ? tmpVer.z : minBd.z;
+            //
+            maxBd.x = tmpVer.x > maxBd.x ? tmpVer.x : maxBd.x;
+            maxBd.y = tmpVer.y > maxBd.y ? tmpVer.y : maxBd.y;
+            maxBd.z = tmpVer.z > maxBd.z ? tmpVer.z : maxBd.z;
+    }
+
 }
 
 // edge conversion 
-
+/*
 std::map<std::pair<int, int>, int> edgeMap; 
 for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
     const MyFace &f = vcg_mesh.face[i];
@@ -413,15 +431,110 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
         }
     }
 }
-
+    */
 // triangle conversion 
-rht_mesh.vecTriangle.resize(vcg_mesh.face.size());
+rht_mesh.vecTriangle.reserve(vcg_mesh.face.size());
 for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
+    _SimpleMeshTriangle tmpTri;
+    _SimpleMeshEdge tmpEdge;
     const MyFace &f = vcg_mesh.face[i];
     int v0 = vcg::tri::Index(vcg_mesh, f.V(0));
     int v1 = vcg::tri::Index(vcg_mesh, f.V(1));
     int v2 = vcg::tri::Index(vcg_mesh, f.V(2)); 
+    tmpTri.v0 = v0;
+	tmpTri.v1 = v1;
+	tmpTri.v2 = v2;
+	OrientTriangles.push_back(tmpTri.v0);
+    OrientTriangles.push_back(tmpTri.v1);
+    OrientTriangles.push_back(tmpTri.v2);
+	// check the existence of tree edges
+    //
+    Vector3 leftVec, rightVec;
+    leftVec[0] = rht_mesh.vecVertex[tmpTri.v2].x - rht_mesh.vecVertex[tmpTri.v1].x;
+    leftVec[1] = rht_mesh.vecVertex[tmpTri.v2].y - rht_mesh.vecVertex[tmpTri.v1].y;
+    leftVec[2] = rht_mesh.vecVertex[tmpTri.v2].z - rht_mesh.vecVertex[tmpTri.v1].z;
 
+    rightVec[0] = rht_mesh.vecVertex[tmpTri.v0].x - rht_mesh.vecVertex[tmpTri.v1].x;
+    rightVec[1] = rht_mesh.vecVertex[tmpTri.v0].y - rht_mesh.vecVertex[tmpTri.v1].y;
+    rightVec[2] = rht_mesh.vecVertex[tmpTri.v0].z - rht_mesh.vecVertex[tmpTri.v1].z;
+    leftVec = leftVec ^ rightVec;
+    unitize(leftVec);
+    //leftVec = leftVec / norm(leftVec);
+    meshNormal.push_back(leftVec);
+    //
+    tmpTri.sortVertices();
+	
+	std::pair<int, int> tmpEdgePair(tmpTri.v0, tmpTri.v1);
+    std::map<std::pair<int, int>, int, myPairCompare>::iterator mIter;
+    mIter = edgeMapping.find(tmpEdgePair);
+    if (mIter == edgeMapping.end()) {// new edge
+        tmpEdge.v0 = tmpEdgePair.first;
+        tmpEdge.v1 = tmpEdgePair.second;
+        tmpEdge.AdjTri[0] = rht_mesh.vecTriangle.size();
+        tmpEdge.AdjTriNum = 1;
+        //
+        rht_mesh.vecEdge.push_back(tmpEdge);
+        tmpTri.e01 = rht_mesh.vecEdge.size() - 1;
+        edgeMapping[tmpEdgePair] = rht_mesh.vecEdge.size() - 1;
+    	} else {// existed already
+            rht_mesh.vecEdge[mIter->second].AdjTriNum++;
+            rht_mesh.vecEdge[mIter->second].AdjTri[1] = rht_mesh.vecTriangle.size();
+            //
+            tmpTri.e01 = mIter->second;
+            }
+            //
+    tmpEdgePair.first = tmpTri.v1;
+    tmpEdgePair.second = tmpTri.v2;
+    mIter = edgeMapping.find(tmpEdgePair);
+    if (mIter == edgeMapping.end()) {// new edge
+        tmpEdge.v0 = tmpEdgePair.first;
+        tmpEdge.v1 = tmpEdgePair.second;
+        tmpEdge.AdjTri[0] = rht_mesh.vecTriangle.size();
+        tmpEdge.AdjTriNum = 1;
+        //
+        rht_mesh.vecEdge.push_back(tmpEdge);
+        tmpTri.e12 = rht_mesh.vecEdge.size() - 1;
+        edgeMapping[tmpEdgePair] = rht_mesh.vecEdge.size() - 1;
+    } else {// existed already
+        rht_mesh.vecEdge[mIter->second].AdjTriNum++;
+        rht_mesh.vecEdge[mIter->second].AdjTri[1] = rht_mesh.vecTriangle.size();
+        //
+        tmpTri.e12 = mIter->second;
+    }
+    //
+    tmpEdgePair.first = tmpTri.v0;
+    tmpEdgePair.second = tmpTri.v2;
+    mIter = edgeMapping.find(tmpEdgePair);
+    if (mIter == edgeMapping.end()) {// new edge
+        tmpEdge.v0 = tmpEdgePair.first;
+        tmpEdge.v1 = tmpEdgePair.second;
+        tmpEdge.AdjTri[0] = rht_mesh.vecTriangle.size();
+        tmpEdge.AdjTriNum = 1;
+        //
+        rht_mesh.vecEdge.push_back(tmpEdge);
+        tmpTri.e02 = rht_mesh.vecEdge.size() - 1;
+        edgeMapping[tmpEdgePair] = rht_mesh.vecEdge.size() - 1;
+    } else {// existed already
+        rht_mesh.vecEdge[mIter->second].AdjTriNum++;
+        rht_mesh.vecEdge[mIter->second].AdjTri[1] = rht_mesh.vecTriangle.size();
+        //
+        tmpTri.e02 = mIter->second;
+    }
+        //
+    rht_mesh.vecTriangle.push_back(tmpTri);
+}                    
+	// assign incident edges information to vertex
+    for (int i = 0; i < int(rht_mesh.vecEdge.size()); i++) {
+        rht_mesh.vecVertex[rht_mesh.vecEdge[i].v0].adjEdges.push_back(i);
+        rht_mesh.vecVertex[rht_mesh.vecEdge[i].v1].adjEdges.push_back(i);
+    }
+    std::cout << "Done... " << vcg_mesh.vert.size() << " " << vcg_mesh.face.size() << std::endl;
+    std::cout << "ver... " << rht_mesh.vecVertex.size() << " tri " << rht_mesh.vecTriangle.size()
+              << " edge" << rht_mesh.vecEdge.size() << std::endl;
+    //
+    edgeMapping.clear();
+    return;
+	/*
     // v0 < v1 < v2
     if (v0 > v1) std::swap(v0, v1);
     if (v1 > v2) std::swap(v1, v2);
@@ -432,8 +545,9 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
     int e02 = edgeMap[std::make_pair(v0, v2)];
 
     rht_mesh.vecTriangle[i] = _SimpleMeshTriangle(v0, v1, v2, e01, e12, e02);
+	*/
 }
-}
+
 
 /* Function to performe the inverse of MeshConverter operation 
 * @param : _SimpleMesh &input_mesh reference to a ReebHanThun mesh 
@@ -505,6 +619,8 @@ int main(int argc, char **argv)  {
 	int nOrgTriangleSize = 0;
 	double BoundingBoxRadius;
     int genus = 0;
+	_SimpleMeshVertex minBd;
+    _SimpleMeshVertex maxBd;
 
     printf("prova\n");
     // definition of type MyMesh -- VCG lib
@@ -532,7 +648,7 @@ int main(int argc, char **argv)  {
   // Now I've loaded the vcg mesh MyMesh
   // convert the vcg mesh in reebhantun _SimpleMesh
 
-  // MeshConverter(m_vcg, m_rht);
+   MeshConverter(minBd, maxBd, m_vcg, m_rht, meshNormal, OrientTriangles, fEnlargeFactor);
    
 
     
@@ -540,9 +656,8 @@ int main(int argc, char **argv)  {
    // Start ReebHanTun business
 
    // function load data!!
-   _SimpleMeshVertex minBd;
-	_SimpleMeshVertex maxBd;
-   m_rht.LoadMeshInOFFformat(minBd, maxBd, meshNormal, argv[1], OrientTriangles, fEnlargeFactor);//"E:\\RProgramming\\Models\\torus.off");// "D:\\MeshModels\\OFF-models\\HighGenusCubeHC1.off");//
+
+  // m_rht.LoadMeshInOFFformat(minBd, maxBd, meshNormal, argv[1], OrientTriangles, fEnlargeFactor);//"E:\\RProgramming\\Models\\torus.off");// "D:\\MeshModels\\OFF-models\\HighGenusCubeHC1.off");//
 
    m_rht.SetMeshNormalPtr(&meshNormal);
    //PrintSimpleMesh(m_rht);
