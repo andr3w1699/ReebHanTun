@@ -1,7 +1,0 @@
-[submodule "ann"]
-	path = ann
-	url = https://github.com/michaelquigley/ann.git
-[submodule "vcglib"]
-	path = vcglib
-	url = https://github.com/cnr-isti-vclab/vcglib.git
-	branch = devel
