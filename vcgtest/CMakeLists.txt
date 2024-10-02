@@ -16,7 +16,27 @@ link_directories(${Boost_LIBRARY_DIRS})
 find_package( CGAL REQUIRED )
 include( ${CGAL_USE_FILE} )
 
-include_directories(${CMAKE_SOURCE_DIR}/vcglib ${CMAKE_SOURCE_DIR}/src)
+# Usa FetchContent per scaricare la libreria ANN
+include(FetchContent)
+
+FetchContent_Declare(
+    ann
+    GIT_REPOSITORY https://github.com/michaelquigley/ann.git
+    GIT_TAG master  # Puoi specificare un tag specifico se necessario
+)
+
+# Scarica e costruisci la libreria ANN
+FetchContent_MakeAvailable(ann)
+
+# Usa FetchContent per scaricare la libreria VCG
+FetchContent_Declare(
+    vcglib
+    GIT_REPOSITORY https://github.com/cnr-isti-vclab/vcglib.git
+    GIT_TAG devel  # Puoi specificare un tag specifico se necessario
+)
+
+# Scarica e costruisci la libreria VCG
+FetchContent_MakeAvailable(vcglib)
 
 add_executable( vcgtest 
 				main.cpp 
@@ -70,15 +90,17 @@ add_executable( vcgtest
 				../src/UniqueDirection.cpp
 				../src/UniqueDirection.h 
 				../src/RenderVector3.h
-				../vcglib/wrap/ply/plylib.cpp
+				../build/_deps/vcglib-src/wrap/ply/plylib.cpp
 				)
 
 target_link_libraries(
 	vcgtest
 	PUBLIC
-		vcglib
 		${Boost_LIBRARIES} 
 		boost_system 
 		boost_program_options 
 		ann
+		vcglib  
 	)
+include_directories(../build/_deps/ann-src)
+include_directories(../build/_deps/vcglib-src)

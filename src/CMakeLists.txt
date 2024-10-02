@@ -13,6 +13,8 @@ link_directories(${Boost_LIBRARY_DIRS})
 find_package( CGAL REQUIRED )
 include( ${CGAL_USE_FILE} )
 
+include_directories(../build/_deps/ann-src)
+
 add_executable( ReebHanTun
 				ComputeReebGraph.cpp
 				CycleOptimization/Annotation/Annotated_polyhedron_3.h
