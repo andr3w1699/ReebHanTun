@@ -1,8 +1,10 @@
 #set(CMAKE_CXX_FLAGS "-lboost_program_options")
 include_directories( ${CMAKE_SOURCE_DIR}/src "${CMAKE_SOURCE_DIR}/src/include" "${CMAKE_SOURCE_DIR}/src/CycleOptimization" "${CMAKE_SOURCE_DIR}/src/CycleOptimization/Annotation" "${CMAKE_SOURCE_DIR}/ann/") 
-link_directories( ${CMAKE_SOURCE_DIR}/src/lib) 
 # ADD library directory for ANN lib
-link_directories( ${CMAKE_SOURCE_DIR}/ANN/lib)
+link_directories(${CMAKE_BINARY_DIR}/_deps/ann-build)
+
+set (CMAKE_CXX_STANDARD 17)
+
 
 # Boost
 find_package( Boost 1.40 COMPONENTS program_options system REQUIRED )
@@ -11,9 +13,12 @@ link_directories(${Boost_LIBRARY_DIRS})
 
 # CGAL
 find_package( CGAL REQUIRED )
-include( ${CGAL_USE_FILE} )
+include_directories( ${CGAL_INCLUDE_DIRS} )
+link_directories(${CGAL_LIBRARY_DIRS})
+# include( ${CGAL_USE_FILE} )
+message(STATUS "CGAL_INCLUDE_DIRS: ${CGAL_INCLUDE_DIRS}")
 
-include_directories(../build/_deps/ann-src)
+include_directories(${CMAKE_BINARY_DIR}/_deps/ann-src)
 
 add_executable( ReebHanTun
 				ComputeReebGraph.cpp
@@ -68,4 +73,4 @@ add_executable( ReebHanTun
 				UniqueDirection.h 
 				RenderVector3.h
 				)
-target_link_libraries( ReebHanTun ${Boost_LIBRARIES} boost_system boost_program_options ann ) #ANN.lib libANN.a
+target_link_libraries( ReebHanTun ${Boost_LIBRARIES} boost_system boost_program_options ann CGAL) #ANN.lib libANN.a

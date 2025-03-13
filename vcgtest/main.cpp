@@ -12,14 +12,6 @@
 
 // include ComputeReebGraph.cpp
 //
-#include "psbmReebGraph.h"
-#include <iostream>
-#include <vector>
-#include <map>
-#include <cmath>
-#include <string>
-#include "SimpleMesh.h"
-#include "FilesOutputForOptimalCycles.h"
 
 // horribile hack to avoid redefinition of main and allowing the use of the functions defined inside
 // ComputeReebGraph.cpp
@@ -45,9 +37,11 @@ class MyFace;
 struct MyUsedTypes : public vcg::UsedTypes<	vcg::Use<MyVertex>::AsVertexType, vcg::Use<MyEdge>::AsEdgeType,   vcg::Use<MyFace>::AsFaceType>{};
 
 class MyVertex  : public vcg::Vertex< MyUsedTypes, vcg::vertex::Coord3f, vcg::vertex::Normal3f, vcg::vertex::Color4b, vcg::vertex::BitFlags, vcg::vertex::VEAdj >{};
-class MyEdge : public vcg::Edge<MyUsedTypes> {};
+class MyEdge : public vcg::Edge<MyUsedTypes,vcg::edge::VertexRef> {};
 class MyFace  : public vcg::Face < MyUsedTypes, vcg::face::VertexRef, vcg::face::Normal3f, vcg::face::Color4b, vcg::face::BitFlags, vcg::face::EFAdj > {};
 class MyMesh  : public vcg::tri::TriMesh< std::vector<MyVertex>, std::vector<MyEdge>, std::vector<MyFace> > {};
+
+
 
 
 
@@ -443,35 +437,34 @@ std::cout << std::endl;
         }
         std::cout << std::endl;  // Nuova riga dopo ogni set
     }
-
-   
-
- MyMesh loops; 
- for (const auto& s : v_basis_loops) {
+    
+    
+    
+    MyMesh loops;
+    for (const auto& s : v_basis_loops) {
         for (const auto& elem : s) {
-			if(elem > 0 && elem < m_rht.vecEdge.size()) {
-			_SimpleMeshEdge edge = m_rht.vecEdge[elem];
-			int v0 = edge.v0;
-			int v1 = edge.v1;
-			loops.vert.push_back(m_vcg.vert[v0]);
-			loops.vert.push_back(m_vcg.vert[v1]);
-			}                  
+            if(elem > 0 && elem < m_rht.vecEdge.size())
+            {
+                int v0 = m_rht.vecEdge[elem].v0;
+                int v1 = m_rht.vecEdge[elem].v1;         
+                tri::Allocator<MyMesh>::AddEdge(loops, m_vcg.vert[v0].P(),m_vcg.vert[v1].P());
+            }
+        }
     }
-  }
-
-   for (const auto& s : h_basis_loops) {
+    
+    
+    for (const auto& s : h_basis_loops) {
         for (const auto& elem : s) {
-			if(elem > 0 && elem < m_rht.vecEdge.size()) {
-			_SimpleMeshEdge edge = m_rht.vecEdge[elem];
-			int v0 = edge.v0;
-			int v1 = edge.v1;
-			loops.vert.push_back(m_vcg.vert[v0]);
-			loops.vert.push_back(m_vcg.vert[v1]);
-			}                  
+            if(elem > 0 && elem < m_rht.vecEdge.size())
+            {
+                int v0 = m_rht.vecEdge[elem].v0;
+                int v1 = m_rht.vecEdge[elem].v1;         
+                tri::Allocator<MyMesh>::AddEdge(loops, m_vcg.vert[v0].P(),m_vcg.vert[v1].P());
+            }
+        }
     }
-  }
-  loops.vn = loops.vert.size();
- // vcg::tri::io::ExporterPLY<MyMesh>::Save(loops,"wallMesh.ply", vcg::tri::io::Mask::IOM_VERTCOLOR); 
- vcg::tri::io::ExporterOFF<MyMesh>::Save(loops,"loops.off");
-  return 0;
+    
+    vcg::tri::io::ExporterPLY<MyMesh>::Save(loops,"loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX); 
+    //vcg::tri::io::ExporterOFF<MyMesh>::Save(loops,"loops.off");
+    return 0;
 }

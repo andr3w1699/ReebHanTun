@@ -3,9 +3,12 @@ project ( vcgtest )
 
 #set(CMAKE_CXX_FLAGS "-lboost_program_options")
 include_directories( ${CMAKE_SOURCE_DIR}/src "${CMAKE_SOURCE_DIR}/src/include" "${CMAKE_SOURCE_DIR}/src/CycleOptimization" "${CMAKE_SOURCE_DIR}/src/CycleOptimization/Annotation" "${CMAKE_SOURCE_DIR}/ann/") 
-link_directories( ${CMAKE_SOURCE_DIR}/src/lib) 
+include_directories(${CMAKE_BINARY_DIR}/_deps/ann-src)
+include_directories(${CMAKE_BINARY_DIR}/_deps/vcglib-src)
+link_directories(${CMAKE_BINARY_DIR}/_deps/ann-build)
+
 # ADD library directory for ANN lib
-link_directories( ${CMAKE_SOURCE_DIR}/ANN/lib)
+link_directories(${CMAKE_BINARY_DIR}/_deps/ann-build/ANN/lib)
 
 # Boost
 find_package( Boost 1.40 COMPONENTS program_options system REQUIRED )
@@ -14,28 +17,28 @@ link_directories(${Boost_LIBRARY_DIRS})
 
 # CGAL
 find_package( CGAL REQUIRED )
-include( ${CGAL_USE_FILE} )
+include_directories( ${CGAL_INCLUDE_DIRS} )
+link_directories(${CGAL_LIBRARY_DIRS})
 
-# Usa FetchContent per scaricare la libreria ANN
+# We use FetchContent to download and build the libraries 
+# It automatically download the required libs into the build folder and build them
 include(FetchContent)
 
 FetchContent_Declare(
     ann
     GIT_REPOSITORY https://github.com/michaelquigley/ann.git
-    GIT_TAG master  # Puoi specificare un tag specifico se necessario
+    GIT_TAG master  
 )
 
-# Scarica e costruisci la libreria ANN
+set (CMAKE_CXX_STANDARD 11)
 FetchContent_MakeAvailable(ann)
-
-# Usa FetchContent per scaricare la libreria VCG
+set (CMAKE_CXX_STANDARD 17)
 FetchContent_Declare(
     vcglib
     GIT_REPOSITORY https://github.com/cnr-isti-vclab/vcglib.git
-    GIT_TAG devel  # Puoi specificare un tag specifico se necessario
+    GIT_TAG devel  
 )
 
-# Scarica e costruisci la libreria VCG
 FetchContent_MakeAvailable(vcglib)
 
 add_executable( vcgtest 
@@ -90,7 +93,8 @@ add_executable( vcgtest
 				../src/UniqueDirection.cpp
 				../src/UniqueDirection.h 
 				../src/RenderVector3.h
-				../build/_deps/vcglib-src/wrap/ply/plylib.cpp
+				${CMAKE_BINARY_DIR}/_deps/vcglib-src/wrap/ply/plylib.cpp
+				reebhantun_wrapper.h
 				)
 
 target_link_libraries(
@@ -100,7 +104,6 @@ target_link_libraries(
 		boost_system 
 		boost_program_options 
 		ann
+		CGAL
 		vcglib  
 	)
-include_directories(../build/_deps/ann-src)
-include_directories(../build/_deps/vcglib-src)
