@@ -326,9 +326,10 @@ void PrintSimpleMesh(const _SimpleMesh &mesh) {
 }
 
 
-int main(int argc, char **argv)  {
+MyMesh& ComputeBasis(MyMesh & m_vcg) {
     Vector3 distinctDirection;
     const float fEnlargeFactor = 10000.f;
+    // vectors of sets that will store basis loops for handles and tunnels
 	std::vector<std::set<int> > v_basis_loops;
 	std::vector<std::set<int> > h_basis_loops;
     psbmReebGraph reebGraph;
@@ -341,50 +342,22 @@ int main(int argc, char **argv)  {
 	_SimpleMeshVertex minBd;
     _SimpleMeshVertex maxBd;
 
-    printf("prova\n");
-    // definition of type MyMesh -- VCG lib
-    MyMesh m_vcg;
-    // definition of type _SimpleMesh -- ReebHanTun 
+    // declaration of an object of type _SimpleMesh -- ReebHanTun 
     _SimpleMesh m_rht;
-    // load a mesh with VCG lib
-    if(vcg::tri::io::ImporterOFF<MyMesh>::Open(m_vcg,argv[1])!=vcg::tri::io::ImporterOFF<MyMesh>::NoError)
-  {
-    printf("Error reading file  %s\n",argv[1]);
-    exit(0);
-  }
-  
-    // Calculate the number of vertices, edges and faces
-    int numVertices = m_vcg.VN();
-    int numEdges = m_vcg.EN();
-    int numFaces = m_vcg.FN();
-    
-    
-    // Print the results
-    printf("Number of vertices: %d\n", numVertices);
-    printf("Number of edges: %d\n", numEdges);
-    printf("Number of faces: %d\n", numFaces);
-   
-  // Now I've loaded the vcg mesh MyMesh
-  // convert the vcg mesh in reebhantun _SimpleMesh
 
-   MeshConverter(minBd, maxBd, m_vcg, m_rht, meshNormal, OrientTriangles, fEnlargeFactor);
-   
+    // convert the vcg mesh in reebhantun _SimpleMesh
+    MeshConverter(minBd, maxBd, m_vcg, m_rht, meshNormal, OrientTriangles, fEnlargeFactor);
 
-    
-   // The mesh is in the right format 
-   // Start ReebHanTun business
+    // The mesh is in the right format 
+    // Start ReebHanTun business
 
-   // function load data!!
+    m_rht.SetMeshNormalPtr(&meshNormal);
 
-  // m_rht.LoadMeshInOFFformat(minBd, maxBd, meshNormal, argv[1], OrientTriangles, fEnlargeFactor);//"E:\\RProgramming\\Models\\torus.off");// "D:\\MeshModels\\OFF-models\\HighGenusCubeHC1.off");//
-
-   m_rht.SetMeshNormalPtr(&meshNormal);
-   //PrintSimpleMesh(m_rht);
-   // triangles in TRIS are in the same order as triangles in mesh.vecTriangle;
+    // triangles in TRIS are in the same order as triangles in mesh.vecTriangle;
 	//
 	nOrgTriangleSize = m_rht.vecTriangle.size();
 	//
-	std::vector<std::vector<std::pair<int, int> > > meshBoundaries;
+    std::vector<std::vector<std::pair<int, int> > > meshBoundaries;
 	if (CheckBoundaries(m_rht, meshBoundaries))
 	{// it is a mesh with bondary
 		int EulerCharacteristic = m_rht.vecVertex.size() + m_rht.vecTriangle.size() - m_rht.vecEdge.size();
@@ -408,78 +381,70 @@ int main(int argc, char **argv)  {
 	std::cout << "Mesh has genus : " << genus << std::endl;
 	//
 
-// compute the bounding box
-
-// end function load data
-// begin main ComputeReebGraph.cpp
-RandomUniqueDirection(m_rht, distinctDirection);
-reebGraph.ReserveSpaceForEdges(m_rht.vecEdge.size());
-double* scalarField = new double[m_rht.vecVertex.size()];
-int perDir = 0;
-int rayDir = 0;
-for (unsigned int i = 0; i < m_rht.vecVertex.size(); i++)
-{
-	scalarField[i] = m_rht.vecVertex[i].x * distinctDirection[0] +
-		m_rht.vecVertex[i].y * distinctDirection[1] +
-		m_rht.vecVertex[i].z * distinctDirection[2];
-}
-reebGraph.SetHeightDirection(distinctDirection);
-reebGraph.AssignData(&m_rht, scalarField);
-reebGraph.scalarDir = 1;
-std::cout << std::endl;
-{
-	// boost::progress_timer t;
+    // compute the bounding box
+    RandomUniqueDirection(m_rht, distinctDirection);
+    reebGraph.ReserveSpaceForEdges(m_rht.vecEdge.size());
+    double* scalarField = new double[m_rht.vecVertex.size()];
+    int perDir = 0;
+    int rayDir = 0;
+    for (unsigned int i = 0; i < m_rht.vecVertex.size(); i++)
+        {
+	        scalarField[i] = m_rht.vecVertex[i].x * distinctDirection[0] +
+		    m_rht.vecVertex[i].y * distinctDirection[1] +
+		    m_rht.vecVertex[i].z * distinctDirection[2];
+        }
+    reebGraph.SetHeightDirection(distinctDirection);
+    reebGraph.AssignData(&m_rht, scalarField);
+    reebGraph.scalarDir = 1;
+    std::cout << std::endl;
+    {
+	    // boost::progress_timer t;
+	    //
+	    reebGraph.ComputeReebGraph();
+	    //
+    }
+    {
+		// boost::progress_timer t;
+		////
+		std::cout << "Time for mapping and linking :" << std::endl;
+		//reebGraph.ComputeCycleAndPairing();
+		reebGraph.ComputingCycle_max_tree();
+		////
+		//std::cout << "mapping" << std::endl;
+		//// computing the cycle on surface
+		reebGraph.compute_path_on_mesh_for_each_simplified_arc();//pathArcOnMesh, offsetPathArcOnMesh);
+		////
+		//std::cout << "embed" << std::endl;
+		reebGraph.EmbedCycleAsEdgePathOnMesh();
+		//std::cout << "linking" << std::endl;
+		reebGraph.LinkNumberMatrixComputing();
+	}
 	//
-	reebGraph.ComputeReebGraph();
+
 	//
-}
-{
-			// boost::progress_timer t;
-			////
-			std::cout << "Time for mapping and linking :" << std::endl;
-			//reebGraph.ComputeCycleAndPairing();
-			reebGraph.ComputingCycle_max_tree();
-			////
-			//std::cout << "mapping" << std::endl;
-			//// computing the cycle on surface
-			reebGraph.compute_path_on_mesh_for_each_simplified_arc();//pathArcOnMesh, offsetPathArcOnMesh);
-			////
-			//std::cout << "embed" << std::endl;
-			reebGraph.EmbedCycleAsEdgePathOnMesh();
-			//std::cout << "linking" << std::endl;
-			reebGraph.LinkNumberMatrixComputing();
-
-		}
-		//
-
-		//
-		if (extraVertices.empty())
-			CycleLocalOptimization(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, 1.f / fEnlargeFactor);
-		else
-			CycleLocalOptimization_bdry(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, extraVertices, 1.f / fEnlargeFactor);
-		//
+	if (extraVertices.empty())
+		CycleLocalOptimization(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, 1.f / fEnlargeFactor);
+	else
+		CycleLocalOptimization_bdry(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, extraVertices, 1.f / fEnlargeFactor);
+	//
 		
 
-		///////////////////////////////////////////////////
-        std::cout << "Handle and tunnel loops written in files :  \n";
-		FilesOutputForOptimalCycles files_out_op;
-        std::string OutputFileName = "provaaaaaa";
-		files_out_op.InitMeshPtr(&m_rht);
-		files_out_op.WriteCyclesInformation(OutputFileName.c_str(), v_basis_loops, h_basis_loops);
-		int orgVertexSize = m_rht.vecVertex.size();
-		if (!extraVertices.empty())
-			orgVertexSize = *extraVertices.begin();
-		files_out_op.WriteGeomviewListFormat(OutputFileName.c_str(), v_basis_loops, h_basis_loops, OrientTriangles, orgVertexSize, nOrgTriangleSize, 1.f / fEnlargeFactor);
-	
-	
+	///////////////////////////////////////////////////
+    std::cout << "Handle and tunnel loops written in files :  \n";
+	FilesOutputForOptimalCycles files_out_op;
+    std::string OutputFileName = "provaaaaaa";
+	files_out_op.InitMeshPtr(&m_rht);
+	files_out_op.WriteCyclesInformation(OutputFileName.c_str(), v_basis_loops, h_basis_loops);
+	int orgVertexSize = m_rht.vecVertex.size();
+	if (!extraVertices.empty())
+		orgVertexSize = *extraVertices.begin();
+	files_out_op.WriteGeomviewListFormat(OutputFileName.c_str(), v_basis_loops, h_basis_loops, OrientTriangles, orgVertexSize, nOrgTriangleSize, 1.f / fEnlargeFactor);
 
-    MyMesh test;
-    ReverseMeshConverter(m_rht, test);
-
-  //vcg::tri::io::ExporterOFF<MyMesh>::Save(test,"test.off");
-
-    std::cout << "num edges: " << m_rht.vecEdge.size();
-	std::cout << std::endl; 
+    //MyMesh test;
+    //ReverseMeshConverter(m_rht, test);
+    //vcg::tri::io::ExporterOFF<MyMesh>::Save(test,"test.off");
+    //std::cout << "num edges: " << m_rht.vecEdge.size();
+	//std::cout << std::endl; 
 
 	for (const auto& s : v_basis_loops) {
         for (const auto& elem : s) {
@@ -521,6 +486,35 @@ std::cout << std::endl;
         }
     }
     
+    return loops;
+}
+
+
+int main(int argc, char **argv)  {
+    // declaration of an object of type MyMesh -- VCG lib
+    MyMesh m_vcg;
+    
+    // load a mesh with VCG lib
+    if(vcg::tri::io::ImporterOFF<MyMesh>::Open(m_vcg,argv[1])!=vcg::tri::io::ImporterOFF<MyMesh>::NoError)
+  {
+    printf("Error reading file  %s\n",argv[1]);
+    exit(0);
+  }
+  
+    // Calculate the number of vertices, edges and faces
+    int numVertices = m_vcg.VN();
+    int numEdges = m_vcg.EN();
+    int numFaces = m_vcg.FN();
+    
+    
+    // Print the results
+    printf("Number of vertices: %d\n", numVertices);
+    printf("Number of edges: %d\n", numEdges);
+    printf("Number of faces: %d\n", numFaces);
+   
+    // Now I've loaded the vcg mesh MyMesh
+
+    MyMesh& loops = ComputeBasis(m_vcg);
     vcg::tri::io::ExporterPLY<MyMesh>::Save(loops,"loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX); 
     //vcg::tri::io::ExporterOFF<MyMesh>::Save(loops,"loops.off");
     return 0;
