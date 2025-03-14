@@ -1,14 +1,15 @@
+/******* HEADER INCLUSION *******/
 #include<stdio.h>
 #include<vcg/complex/complex.h>
 #include <vcg/space/point3.h>
 #include <vcg/complex/algorithms/update/normal.h>
 #include <vcg/complex/algorithms/update/bounding.h>
 // input output
-#include <wrap/io_trimesh/import.h>
-#include<wrap/io_trimesh/export_off.h>
-#include<wrap/io_trimesh/export_ply.h>
+#include <wrap/io_trimesh/import.h>    // reads mesh files (e.g. .off, .ply formats)
+#include<wrap/io_trimesh/export_off.h> // exports a mesh in .off format 
+#include<wrap/io_trimesh/export_ply.h> // exports a mesh in .ply format
 // mesh ReebHanTun
-#include<SimpleMesh.h>
+#include<SimpleMesh.h> //  Defines the _SimpleMesh structure used in ReebHanTun.
 
 // include ComputeReebGraph.cpp
 //
@@ -25,35 +26,58 @@
 //#include <boost/progress.hpp>
 #include <boost/timer/progress_display.hpp>
 #include <boost/program_options.hpp>
-//
 
+#include "reebhantun_wrapper.h"
+/******* END HEADER INCLUSION *******/
+
+// Using VCG and Standard Namespace
+// This avoids needing vcg:: and std:: prefixes for their functions 
 using namespace vcg;
 using namespace std;
 
+/**** Defining Mesh Types ****/
+
+// Declares three custom mesh components: vertices, edges, and faces.
 class MyVertex;
 class MyEdge;
 class MyFace;
 
+// MyUsedTypes defines the types of elements used in the mesh:
+// It specifies that MyVertex, MyEdge, and MyFace will be used.
 struct MyUsedTypes : public vcg::UsedTypes<	vcg::Use<MyVertex>::AsVertexType, vcg::Use<MyEdge>::AsEdgeType,   vcg::Use<MyFace>::AsFaceType>{};
 
+// Defines MyVertex, MyEdge, and MyFace as VCG-compatible mesh elements. Each class inherits from a corresponding
+// VCG class (vcg::Vertex, vcg::Edge, vcg::Face) and includes various properties:
+// MyVertex: Coord3f --> Stores 3D coordinates, Normal3f --> Stores normal vectors, Color4b --> Stores color (RGBA).
+// BitFlags --> Stores extra data (e.g., selection state), VEAdj  --> Stores adjacency information between vertices and edges
+// MyEdge: VertexRef: References vertices.
+// MyFace: VertexRef: References vertices, Normal3f: Stores normal vectors, Color4b: Stores color (RGBA)
+// BitFlags: Stores extra data (e.g., selection state), EFAdj: Stores adjacency information between edges and faces.
 class MyVertex  : public vcg::Vertex< MyUsedTypes, vcg::vertex::Coord3f, vcg::vertex::Normal3f, vcg::vertex::Color4b, vcg::vertex::BitFlags, vcg::vertex::VEAdj >{};
 class MyEdge : public vcg::Edge<MyUsedTypes,vcg::edge::VertexRef> {};
 class MyFace  : public vcg::Face < MyUsedTypes, vcg::face::VertexRef, vcg::face::Normal3f, vcg::face::Color4b, vcg::face::BitFlags, vcg::face::EFAdj > {};
+
+// MyMesh class represents the entire mesh. It inherits from vcg::tri::TriMesh and uses std::vector 
+// to store collections of MyVertex, MyEdge, and MyFace elements. 
 class MyMesh  : public vcg::tri::TriMesh< std::vector<MyVertex>, std::vector<MyEdge>, std::vector<MyFace> > {};
 
 
-
-
-
-// function to convert a vcg mesh type _SimpleMesh in a reebhantun mesh _SimpleMesh
-
-void MeshConverter (_SimpleMeshVertex &minBd,
-                                      _SimpleMeshVertex &maxBd, const MyMesh & vcg_mesh,  _SimpleMesh & rht_mesh, std::vector<Vector3> &meshNormal, std::vector<int> &OrientTriangles, const float fEnlargeFactor ) {
+/* 
+MeshConverter is function to convert a VCG mesh type MyMesh in a ReebHanTun mesh _SimpleMesh. 
+It also calculates the bounding box (minBd, maxBd), normals (meshNormal), and triangle orientations (OrientTriangles). 
+The fEnlargeFactor is used to scale the vertices.
+*/
+void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const MyMesh & vcg_mesh,  _SimpleMesh & rht_mesh, std::vector<Vector3> &meshNormal, std::vector<int> &OrientTriangles, const float fEnlargeFactor ) {
+// map to store edges as pair of vertex indices
 std::map<std::pair<int, int>, int, myPairCompare> edgeMapping;
 // vertex conversion 
+// reserves space in the OrientTriangles vector to avoid reallocations.
 OrientTriangles.reserve(vcg_mesh.face.size());
 // resize vecVertex of _SimpleMesh to store as many vertex as Mymesh
 rht_mesh.vecVertex.reserve(vcg_mesh.vert.size());
+// vertex conversion loop 
+// This loop iterates over all vertices in vcg_mesh, 
+// scales their coordinates by fEnlargeFactor, and adds them to rht_mesh.vecVertex.
 for(size_t i = 0; i < vcg_mesh.vert.size(); ++i) {
 	_SimpleMeshVertex tmpVer;
     const MyVertex &v = vcg_mesh.vert[i];
@@ -61,6 +85,7 @@ for(size_t i = 0; i < vcg_mesh.vert.size(); ++i) {
     tmpVer.y = v.P().Y() * fEnlargeFactor;
 	tmpVer.z = v.P().Z() * fEnlargeFactor;
 	rht_mesh.vecVertex.push_back(tmpVer);
+    // Updates Bounding Box based on the current vertex  
     if (rht_mesh.vecVertex.size() == 1) {
        minBd =  tmpVer;
        maxBd = tmpVer;
@@ -94,8 +119,13 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
     }
 }
     */
+
 // triangle conversion 
+// reserves space in the vecTriangle vector of rht_mesh to store all triangles from vcg_mesh
 rht_mesh.vecTriangle.reserve(vcg_mesh.face.size());
+// Looping through faces 
+// This loop iterates over all faces in vcg_mesh. For each face, it creates temporary triangle (tmpTri)
+// It retrieves the vertex indices (v0, v1, v2) for the current face.
 for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
     _SimpleMeshTriangle tmpTri;
     _SimpleMeshEdge tmpEdge;
@@ -110,7 +140,8 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
     OrientTriangles.push_back(tmpTri.v1);
     OrientTriangles.push_back(tmpTri.v2);
 	// check the existence of tree edges
-    //
+    // Calculate Edge Vectors & Normals 
+    // Calculates the normal vector for the face using the cross product of two edge vectors and normalizes it.
     Vector3 leftVec, rightVec;
     leftVec[0] = rht_mesh.vecVertex[tmpTri.v2].x - rht_mesh.vecVertex[tmpTri.v1].x;
     leftVec[1] = rht_mesh.vecVertex[tmpTri.v2].y - rht_mesh.vecVertex[tmpTri.v1].y;
@@ -123,28 +154,42 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
     unitize(leftVec);
     //leftVec = leftVec / norm(leftVec);
     meshNormal.push_back(leftVec);
-    //
+    // 
     tmpTri.sortVertices();
 	
+    // Edge Mapping and Assignement
+    // tmpEdgePair: Creates a pair of vertex indices (v0, v1) representing an edge.
 	std::pair<int, int> tmpEdgePair(tmpTri.v0, tmpTri.v1);
+    // mIter: Declares an iterator for the edgeMapping map.
     std::map<std::pair<int, int>, int, myPairCompare>::iterator mIter;
+    // Searches for the edge in the edgeMapping map
     mIter = edgeMapping.find(tmpEdgePair);
+    // if the edge is not found in edgeMapping
     if (mIter == edgeMapping.end()) {// new edge
+        // sets the vertices of tmpEdge
         tmpEdge.v0 = tmpEdgePair.first;
         tmpEdge.v1 = tmpEdgePair.second;
+        // sets the adjacency information 
+        // assigns the index of the current triangle to the first position in the AdjTri array of tmpEdge
         tmpEdge.AdjTri[0] = rht_mesh.vecTriangle.size();
         tmpEdge.AdjTriNum = 1;
-        //
+        // Adds tmpEdge to rht_mesh.vecEdge
         rht_mesh.vecEdge.push_back(tmpEdge);
+        // Updates tmpTri.e01 with the index of the new edge
         tmpTri.e01 = rht_mesh.vecEdge.size() - 1;
+        // Adds the edge to edgeMapping.
         edgeMapping[tmpEdgePair] = rht_mesh.vecEdge.size() - 1;
     	} else {// existed already
+            // Increments the number of triangles adjacent to this edge by 1
             rht_mesh.vecEdge[mIter->second].AdjTriNum++;
+            // assigns the index of the current triangle to the second position in the AdjTri array, 
+            // indicating that this edge is now adjacent to two triangles.
             rht_mesh.vecEdge[mIter->second].AdjTri[1] = rht_mesh.vecTriangle.size();
-            //
+            // assigns the index of the existing edge to the triangle's edge index (e01)
             tmpTri.e01 = mIter->second;
             }
             //
+    // Repeat for other edges (v1,v2)
     tmpEdgePair.first = tmpTri.v1;
     tmpEdgePair.second = tmpTri.v2;
     mIter = edgeMapping.find(tmpEdgePair);
@@ -164,6 +209,7 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
         tmpTri.e12 = mIter->second;
     }
     //
+    // Repeat for other edges v0,v2
     tmpEdgePair.first = tmpTri.v0;
     tmpEdgePair.second = tmpTri.v2;
     mIter = edgeMapping.find(tmpEdgePair);
@@ -186,7 +232,9 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
     rht_mesh.vecTriangle.push_back(tmpTri);
 }                    
 	// assign incident edges information to vertex
+    // this loop iterates over all edges in rht_mesh.vecEdge
     for (int i = 0; i < int(rht_mesh.vecEdge.size()); i++) {
+        // adds the index of the current edge (i) to the adjEdges vector of the vertices.
         rht_mesh.vecVertex[rht_mesh.vecEdge[i].v0].adjEdges.push_back(i);
         rht_mesh.vecVertex[rht_mesh.vecEdge[i].v1].adjEdges.push_back(i);
     }
@@ -213,32 +261,41 @@ for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
 
 /* Function to performe the inverse of MeshConverter operation 
 * @param : _SimpleMesh &input_mesh reference to a ReebHanThun mesh 
-* @param : MyMesh &output_mesh reference to a vcg lib mesh to store the result of the conversion
-* @result : output_mesh will be modified to store input_mesh converted in a vcg mesh
+* @param : MyMesh &output_mesh reference to a VCG lib mesh to store the result of the conversion
+* @result : output_mesh will be modified to store input_mesh converted in a VCG mesh
             do not modify input_mesh
 */
 void ReverseMeshConverter(const _SimpleMesh &input_mesh, MyMesh &output_mesh){
 
     // Add vertices to the mesh
+    // iterates over each vertex in input_mesh.vecVertex
     for(auto& p : input_mesh.vecVertex) {
         MyMesh::VertexType v;
+        // Converts the coordinates of the vertex (p.x, p.y, p.z) to a vcg::Point3<float> object
         vcg::Point3<float> point = vcg::Point3<float>(p.x, p.y, p.z);
         v.P() = point;
+        // add vertex
         output_mesh.vert.push_back(v);
     }
+    // update vertex count 
     output_mesh.vn = output_mesh.vert.size();
 
     // Add faces to the mesh 
+    // loops through triangles of input_mesh.vecTriangle
     for(auto& tri: input_mesh.vecTriangle) {
+        // Creates a new face (f) of type MyMesh::FaceType
         MyMesh::FaceType f;
+        // Assigns the vertices of the face using the indices from the triangle (tri.v0, tri.v1, tri.v2)
         f.V(0) = &output_mesh.vert[tri.v0];
         f.V(1) = &output_mesh.vert[tri.v1];
         f.V(2) = &output_mesh.vert[tri.v2];
+        // add face
         output_mesh.face.push_back(f);
     }
+    // update face count in output_mesh
     output_mesh.fn = output_mesh.face.size();
 
-    // Update the normals and bounding box
+    // Update the normals (for face and for vertex) and bounding box
     tri::UpdateNormal<MyMesh>::PerFaceNormalized(output_mesh);
     tri::UpdateNormal<MyMesh>::PerVertexNormalized(output_mesh);
     tri::UpdateBounding<MyMesh>::Box(output_mesh);
