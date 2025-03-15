@@ -516,11 +516,23 @@ int main(int argc, char **argv)  {
     // Now I've loaded the vcg mesh MyMesh
 
     ReebHanTunWrapper<MyMesh> wrapper(m_vcg);
-    MyMesh& loops = wrapper.ComputeBasis();
+    MyMesh loops;
+    wrapper.ComputeBasis(loops);
     //wrapper.SetBaseMesh(m_vcg);
 
-    //MyMesh& loops = ComputeBasis(m_vcg);
-    vcg::tri::io::ExporterPLY<MyMesh>::Save(loops,"loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX); 
+    printf("Number of handle loops found: %d\n", wrapper.GetNumHandleLoops());
+    printf("Number of Tunnel loops found: %d\n", wrapper.GetNumHandleLoops());
+
+    MyMesh h_loops;
+    MyMesh v_loops;
+    
+    
+
+    wrapper.GetHandleLoops(h_loops, -1);
+    wrapper.GetTunnelLoops(v_loops, -1);
+    vcg::tri::io::ExporterPLY<MyMesh>::Save(h_loops,"handle_loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX); 
+    vcg::tri::io::ExporterPLY<MyMesh>::Save(v_loops,"tunnel_loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX);
+    vcg::tri::io::ExporterPLY<MyMesh>::Save(loops,"loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX);
     //vcg::tri::io::ExporterOFF<MyMesh>::Save(loops,"loops.off");
     return 0;
 }
