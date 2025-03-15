@@ -506,6 +506,7 @@ int main(int argc, char **argv)  {
     int numEdges = m_vcg.EN();
     int numFaces = m_vcg.FN();
     
+
     
     // Print the results
     printf("Number of vertices: %d\n", numVertices);
@@ -514,7 +515,11 @@ int main(int argc, char **argv)  {
    
     // Now I've loaded the vcg mesh MyMesh
 
-    MyMesh& loops = ComputeBasis(m_vcg);
+    ReebHanTunWrapper<MyMesh> wrapper(m_vcg);
+    MyMesh& loops = wrapper.ComputeBasis();
+    //wrapper.SetBaseMesh(m_vcg);
+
+    //MyMesh& loops = ComputeBasis(m_vcg);
     vcg::tri::io::ExporterPLY<MyMesh>::Save(loops,"loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX); 
     //vcg::tri::io::ExporterOFF<MyMesh>::Save(loops,"loops.off");
     return 0;
