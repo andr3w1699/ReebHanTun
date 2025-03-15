@@ -460,6 +460,18 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
             }
         }
       }
+      else if(index>= 0 && index<h_basis_loops.size()) {
+        std::set<int> s = h_basis_loops[index];
+        for (const auto& elem : s) {
+            if(elem > 0 && elem < m_rht.vecEdge.size())
+            {
+                int v0 = m_rht.vecEdge[elem].v0;
+                int v1 = m_rht.vecEdge[elem].v1;         
+                vcg::tri::Allocator<MeshType>::AddEdge(loop, vcg_mesh.vert[v0].P(),vcg_mesh.vert[v1].P());
+            }
+        }
+    }
+    else std::cout << "LOOP INDEX OUT OF BOUND"  << std::endl;
     }
     
     void GetTunnelLoops(MeshType &loop, int index=-1)
@@ -476,6 +488,18 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
                 }
             }         
           }
+        else if(index>= 0 && index<v_basis_loops.size()) {
+            std::set<int> s = v_basis_loops[index];
+            for (const auto& elem : s) {
+                if(elem > 0 && elem < m_rht.vecEdge.size())
+                {
+                    int v0 = m_rht.vecEdge[elem].v0;
+                    int v1 = m_rht.vecEdge[elem].v1;         
+                    vcg::tri::Allocator<MeshType>::AddEdge(loop, vcg_mesh.vert[v0].P(),vcg_mesh.vert[v1].P());
+                }
+            }
+        }
+        else std::cout << "LOOP INDEX OUT OF BOUND"  << std::endl;
     }
 };
 
