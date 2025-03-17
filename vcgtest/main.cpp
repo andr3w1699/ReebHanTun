@@ -493,9 +493,19 @@ MyMesh& ComputeBasis(MyMesh & m_vcg) {
 int main(int argc, char **argv)  {
     // declaration of an object of type MyMesh -- VCG lib
     MyMesh m_vcg;
+
+    // declaration of an object of type MyMesh -- VCG lib
+    MyMesh m_vcg2;
     
     // load a mesh with VCG lib
     if(vcg::tri::io::ImporterOFF<MyMesh>::Open(m_vcg,argv[1])!=vcg::tri::io::ImporterOFF<MyMesh>::NoError)
+  {
+    printf("Error reading file  %s\n",argv[1]);
+    exit(0);
+  }
+
+  // load a mesh with VCG lib
+  if(vcg::tri::io::ImporterOFF<MyMesh>::Open(m_vcg2,argv[2])!=vcg::tri::io::ImporterOFF<MyMesh>::NoError)
   {
     printf("Error reading file  %s\n",argv[1]);
     exit(0);
@@ -506,8 +516,6 @@ int main(int argc, char **argv)  {
     int numEdges = m_vcg.EN();
     int numFaces = m_vcg.FN();
     
-
-    
     // Print the results
     printf("Number of vertices: %d\n", numVertices);
     printf("Number of edges: %d\n", numEdges);
@@ -515,24 +523,38 @@ int main(int argc, char **argv)  {
    
     // Now I've loaded the vcg mesh MyMesh
 
+    // initialize ReebHanTun 
+    // instatiate an object ReebHanTunWrapper by passing 
+    // the mesh you want to compute the basis of loops 
     ReebHanTunWrapper<MyMesh> wrapper(m_vcg);
+    // declare a mesh to store the computed basis 
     MyMesh loops;
+    // compute the basis and store the results in the mesh loops (all the basis tunnel+handle)
     wrapper.ComputeBasis(loops);
-    //wrapper.SetBaseMesh(m_vcg);
 
+    // use the getter functions to print the number of computed loops 
     printf("Number of handle loops found: %d\n", wrapper.GetNumHandleLoops());
     printf("Number of Tunnel loops found: %d\n", wrapper.GetNumHandleLoops());
 
+    // prepare two mesh to store the handle and tunnel loops 
     MyMesh h_loops;
     MyMesh v_loops;
     
-    
-
-    wrapper.GetHandleLoops(h_loops, -1);
+    // get the handle loop number four
+    wrapper.GetHandleLoops(h_loops, 4);
+    // get all the basis of tunnel loops
     wrapper.GetTunnelLoops(v_loops, -1);
+
+    // rest the ReebHanTun with a new mesh you want to compute the basis 
+    wrapper.SetBaseMesh(m_vcg2);
+    // compute the new basis and store the results in loops2
+    MyMesh loops2;
+    wrapper.ComputeBasis(loops2);
+
     vcg::tri::io::ExporterPLY<MyMesh>::Save(h_loops,"handle_loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX); 
     vcg::tri::io::ExporterPLY<MyMesh>::Save(v_loops,"tunnel_loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX);
     vcg::tri::io::ExporterPLY<MyMesh>::Save(loops,"loops.ply", vcg::tri::io::Mask::IOM_EDGEINDEX);
+    vcg::tri::io::ExporterPLY<MyMesh>::Save(loops2,"loops2.ply", vcg::tri::io::Mask::IOM_EDGEINDEX);
     //vcg::tri::io::ExporterOFF<MyMesh>::Save(loops,"loops.off");
     return 0;
 }

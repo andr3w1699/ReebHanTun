@@ -14,7 +14,13 @@
 ///
 /** \addtogroup trimesh */
 /*@{*/
-/// Wrapper to use ReebHanTun code inside the vcg library.
+/// Wrapper to use ReebHanTun code inside the vcg library. 
+/// Non-static class parametric w.r.t. to MeshType that acts 
+/// as a wrapper to run ReebHanTun code inside the vcg library.
+/// 1. Invoke the constructor by passing a reference to a mesh MeshType
+///    for which we want to compute the basis
+/// 2. Invoke the method ComputeBasis by passing a reference to a mesh MeshType 
+///    where you want the loop to be saved
 /// 
 template <class MeshType>
 class ReebHanTunWrapper
@@ -22,36 +28,53 @@ class ReebHanTunWrapper
     
 
 private:
+    // typedef of parametric type VertexType & FaceType
     typedef typename MeshType::VertexType           VertexType;  
     typedef typename MeshType::FaceType             FaceType;
-    // mesh for which we want to compute the basis 
-    MeshType& vcg_mesh;
-    // declaration of an object of type _SimpleMesh -- ReebHanTun 
-    _SimpleMesh m_rht;
-    const float fEnlargeFactor=10000.0f;
 
+    // mesh for which we want to compute the basis -- VCG format 
+    // reference to an object of parametric type MeshType
+    MeshType& vcg_mesh;
+
+    // mesh for which we want to compute the basis in ReebHanTun format, object of type _SimpleMesh 
+    _SimpleMesh m_rht;
+
+    // private variables where the tunnel & handle loops are saved 
+    // after being computed bu the function ComputeBasis
     std::vector<std::set<int> > v_basis_loops;
     std::vector<std::set<int> > h_basis_loops;
 
+    // flag set to 1 when the loops has been computed for the current mesh 
+    // initially false
+    bool is_basis_computed = false;  
 
-    /*
-    struct Params
+
+    // define the typedef for struct Params 
+    typedef struct Params
     {
-        float enlarge_factor=10000.0f;
-    };
-    */
+        // enlarge/scaling factor used internally by ReebHanTun
+        const float enlarge_factor;
 
-    // Definisci il typedef per la struct Stats
+        // enlarge_factor is set to 10000
+        Params() : enlarge_factor(10000.0f) {}
+    } Params;
+
+    // declare the private variable of type Params
+    Params _params;
+
+    // define the typedef for struct Stats
     typedef struct Stats
     {
+        // num of handle_loops
         int handle_num;
+        // num of tunnel_loops
         int tunnel_num;
 
-        // Costruttore per inizializzare i campi a -1
+        // constructor method to initialize the fields to -1
         Stats() : handle_num(-1), tunnel_num(-1) {}
     } StatsType;
 
-    // Dichiara la variabile privata di tipo Stats
+    // declare the private variable of type Stats
     StatsType _stats;
 
 /* 
@@ -260,17 +283,20 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
      * @param mesh
      * define the base mesh for which the loops are computed 
      * 
-     *
+     */
     void SetBaseMesh(MeshType &mesh) {
-        vcg_mesh = mesh;
+        // reinitialize internal structures 
+        // preparing to compute a basis for a new mesh 
+        this->~ReebHanTunWrapper(); // // Manually call destructor
+        new (this) ReebHanTunWrapper(mesh);  // Placement new: reconstruct the object
     }
-    */
+    
 
 
     /**
      * @brief ComputeBasis
-     * @param mesh
-     * define the base mesh for which the loops are computed
+     * @param MeshType &loops : reference to a mesh where the computed basis is going to be saved 
+     * Function to invoke to compute a basis of handle and tunnel loops on the current mesh 
      */
    void ComputeBasis(MeshType &loops) {
         Vector3 distinctDirection;
@@ -286,7 +312,7 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
         _SimpleMeshVertex maxBd;
     
         // convert the vcg mesh in reebhantun _SimpleMesh
-        MeshConverter(minBd, maxBd, vcg_mesh, m_rht, meshNormal, OrientTriangles, fEnlargeFactor);
+        MeshConverter(minBd, maxBd, vcg_mesh, m_rht, meshNormal, OrientTriangles, _params.enlarge_factor);
     
         // The mesh is in the right format 
         // Start ReebHanTun business
@@ -363,9 +389,9 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
     
         //
         if (extraVertices.empty())
-            CycleLocalOptimization(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, 1.f / fEnlargeFactor);
+            CycleLocalOptimization(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, 1.f / _params.enlarge_factor);
         else
-            CycleLocalOptimization_bdry(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, extraVertices, 1.f / fEnlargeFactor);
+            CycleLocalOptimization_bdry(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, extraVertices, 1.f / _params.enlarge_factor);
         //
             
     
@@ -378,7 +404,7 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
         int orgVertexSize = m_rht.vecVertex.size();
         if (!extraVertices.empty())
             orgVertexSize = *extraVertices.begin();
-        files_out_op.WriteGeomviewListFormat(OutputFileName.c_str(), v_basis_loops, h_basis_loops, OrientTriangles, orgVertexSize, nOrgTriangleSize, 1.f / fEnlargeFactor);
+        files_out_op.WriteGeomviewListFormat(OutputFileName.c_str(), v_basis_loops, h_basis_loops, OrientTriangles, orgVertexSize, nOrgTriangleSize, 1.f / _params.enlarge_factor);
     
         //MyMesh test;
         //ReverseMeshConverter(m_rht, test);
@@ -390,16 +416,18 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
             for (const auto& elem : s) {
                 std::cout << elem << " ";
             }
-            std::cout << std::endl;  // Nuova riga dopo ogni set
+            std::cout << std::endl;  // new line after each set
         }
     
         for (const auto& s : h_basis_loops) {
             for (const auto& elem : s) {
                 std::cout << elem << " ";
             }
-            std::cout << std::endl;  // Nuova riga dopo ogni set
+            std::cout << std::endl;  // new line after each set 
         }
         
+        // now the basis has been computed for the current mesh
+        is_basis_computed = true;
         // Update the Stats struct with the number of loops
         _stats.handle_num = h_basis_loops.size();
         _stats.tunnel_num = v_basis_loops.size();
@@ -430,10 +458,21 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
         
     }
 
+    
+    /**
+     * @brief GetNumHandleLoops
+     * getter method to retrieve the number of tunnel loops computed for the current mesh 
+     * return -1 if the basis hasn't been computed yet 
+     */
     int GetNumHandleLoops() {
         return _stats.handle_num;
     }
 
+    /**
+     * @brief GetNumTunnelLoops
+     * getter method to retrieve the number of tunnel loops computed for the current mesh
+     * return -1 if the basis hasn't been computed yet 
+     */
     int GetNumTunnelLoops() {
         return _stats.tunnel_num;
     }
@@ -448,7 +487,9 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
      */
     void GetHandleLoops(MeshType &loop, int index=-1)
     {
-       if(index==-1) {
+        if(is_basis_computed==false)
+            std::cout << "BASIS NOT COMPUTED FOR THE CURRENT MESH: INVOKE COMPUTEBASIS"  << std::endl;
+        else if(index==-1) {
         for (const auto& s : h_basis_loops) {
             for (const auto& elem : s) {
                 if(elem > 0 && elem < m_rht.vecEdge.size())
@@ -475,8 +516,10 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
     }
     
     void GetTunnelLoops(MeshType &loop, int index=-1)
-    {
-        if(index==-1) {
+    {   
+        if(is_basis_computed==false)
+        std::cout << "BASIS NOT COMPUTED FOR THE CURRENT MESH: INVOKE COMPUTEBASIS"  << std::endl;
+        else if(index==-1) {
             for (const auto& s : v_basis_loops) {
                 for (const auto& elem : s) {
                     if(elem > 0 && elem < m_rht.vecEdge.size())
