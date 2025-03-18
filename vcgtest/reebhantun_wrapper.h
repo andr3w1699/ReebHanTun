@@ -2,14 +2,21 @@
 #define REEBHANTUN_WRAPPER_H
 
 #include <psbmReebGraph.h>
-#include <iostream>
-#include <vector>
-#include <map>
-#include <cmath>
-#include <string>
-#include "SimpleMesh.h"
 #include <FilesOutputForOptimalCycles.h>
 
+// include ComputeReebGraph.cpp
+//
+// horribile hack to avoid redefinition of main and allowing the use of the functions defined inside
+// ComputeReebGraph.cpp
+
+#define main __main
+#include "../src/ComputeReebGraph.cpp"
+#undef main
+
+#include<vcg/complex/complex.h>
+
+namespace vcg {
+namespace tri {
 
 ///
 /** \addtogroup trimesh */
@@ -29,12 +36,10 @@ class ReebHanTunWrapper
 
 private:
     // typedef of parametric type VertexType & FaceType
-    typedef typename MeshType::VertexType           VertexType;  
+    typedef typename MeshType::VertexType           VertexType;
     typedef typename MeshType::FaceType             FaceType;
-
-    // mesh for which we want to compute the basis -- VCG format 
-    // reference to an object of parametric type MeshType
-    MeshType& vcg_mesh;
+    typedef typename MeshType::CoordType             CoordType;
+    
 
     // mesh for which we want to compute the basis in ReebHanTun format, object of type _SimpleMesh 
     _SimpleMesh m_rht;
@@ -44,51 +49,28 @@ private:
     std::vector<std::set<int> > v_basis_loops;
     std::vector<std::set<int> > h_basis_loops;
 
-    // flag set to 1 when the loops has been computed for the current mesh 
-    // initially false
-    bool is_basis_computed = false;  
-
-
     // define the typedef for struct Params 
     typedef struct Params
     {
         // enlarge/scaling factor used internally by ReebHanTun
-        const float enlarge_factor;
-
-        // enlarge_factor is set to 10000
-        Params() : enlarge_factor(10000.0f) {}
+      float enlarge_factor=10000.0f;
     } Params;
 
     // declare the private variable of type Params
     Params _params;
 
-    // define the typedef for struct Stats
-    typedef struct Stats
-    {
-        // num of handle_loops
-        int handle_num;
-        // num of tunnel_loops
-        int tunnel_num;
-
-        // constructor method to initialize the fields to -1
-        Stats() : handle_num(-1), tunnel_num(-1) {}
-    } StatsType;
-
-    // declare the private variable of type Stats
-    StatsType _stats;
-
 /* 
-MeshConverter is function to convert a VCG mesh type MyMesh in a ReebHanTun mesh _SimpleMesh. 
+MeshConverter is function to convert a VCG mesh type MeshType in a ReebHanTun mesh _SimpleMesh. 
 It also calculates the bounding box (minBd, maxBd), normals (meshNormal), and triangle orientations (OrientTriangles). 
 The fEnlargeFactor is used to scale the vertices.
 */
-void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vector<Vector3> &meshNormal, std::vector<int> &OrientTriangles, const float fEnlargeFactor ) {
+void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vector<Vector3> &meshNormal, std::vector<int> &OrientTriangles, const float fEnlargeFactor ) {
     // map to store edges as pair of vertex indices
     std::map<std::pair<int, int>, int, myPairCompare> edgeMapping;
     // vertex conversion 
     // reserves space in the OrientTriangles vector to avoid reallocations.
     OrientTriangles.reserve(vcg_mesh.face.size());
-    // resize vecVertex of _SimpleMesh to store as many vertex as Mymesh
+    // resize vecVertex of _SimpleMesh to store as many vertex as MeshType
     rht_mesh.vecVertex.reserve(vcg_mesh.vert.size());
     // vertex conversion loop 
     // This loop iterates over all vertices in vcg_mesh, 
@@ -99,21 +81,7 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
         tmpVer.x = v.P().X() * fEnlargeFactor;
         tmpVer.y = v.P().Y() * fEnlargeFactor;
         tmpVer.z = v.P().Z() * fEnlargeFactor;
-        rht_mesh.vecVertex.push_back(tmpVer);
-        // Updates Bounding Box based on the current vertex  
-        if (rht_mesh.vecVertex.size() == 1) {
-           minBd =  tmpVer;
-           maxBd = tmpVer;
-        } else {
-                minBd.x = tmpVer.x < minBd.x ? tmpVer.x : minBd.x;
-                minBd.y = tmpVer.y < minBd.y ? tmpVer.y : minBd.y;
-                minBd.z = tmpVer.z < minBd.z ? tmpVer.z : minBd.z;
-                //
-                maxBd.x = tmpVer.x > maxBd.x ? tmpVer.x : maxBd.x;
-                maxBd.y = tmpVer.y > maxBd.y ? tmpVer.y : maxBd.y;
-                maxBd.z = tmpVer.z > maxBd.z ? tmpVer.z : maxBd.z;
-        }
-    
+        rht_mesh.vecVertex.push_back(tmpVer);    
     }
     
     // edge conversion 
@@ -145,9 +113,9 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
         _SimpleMeshTriangle tmpTri;
         _SimpleMeshEdge tmpEdge;
         const FaceType &f = vcg_mesh.face[i];
-        int v0 = vcg::tri::Index(vcg_mesh, f.V(0));
-        int v1 = vcg::tri::Index(vcg_mesh, f.V(1));
-        int v2 = vcg::tri::Index(vcg_mesh, f.V(2)); 
+        int v0 = Index(vcg_mesh, f.V(0));
+        int v1 = Index(vcg_mesh, f.V(1));
+        int v2 = Index(vcg_mesh, f.V(2)); 
         tmpTri.v0 = v0;
         tmpTri.v1 = v1;
         tmpTri.v2 = v2;
@@ -274,55 +242,52 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
     }
     
     public:
-
-    // Constructor that accepts a reference to a MeshType object for which the loops are computed
-    ReebHanTunWrapper(MeshType &meshRef) : vcg_mesh(meshRef) {}
         
-    /**
-     * @brief SetBaseMesh
-     * @param mesh
-     * define the base mesh for which the loops are computed 
-     * 
-     */
-    void SetBaseMesh(MeshType &mesh) {
-        // reinitialize internal structures 
-        // preparing to compute a basis for a new mesh 
-        this->~ReebHanTunWrapper(); // // Manually call destructor
-        new (this) ReebHanTunWrapper(mesh);  // Placement new: reconstruct the object
-    }
-    
-
+        
+        /* Function to performe the inverse of MeshConverter operation 
+* @param : _SimpleMesh &input_mesh reference to a ReebHanThun mesh 
+* @param : MeshType &output_mesh reference to a VCG lib mesh to store the result of the conversion
+* @result : output_mesh will be modified to store input_mesh converted in a VCG mesh
+            do not modify input_mesh
+*/
+        void ReverseMeshConverter(const _SimpleMesh &input_mesh, MeshType &output_mesh){
+            
+            // Add vertices to the mesh
+            // iterates over each vertex in input_mesh.vecVertex
+            for(auto& p : input_mesh.vecVertex) {
+                tri::Allocator<MeshType>::AddVertex(output_mesh, CoordType(p.x, p.y, p.z));                
+            }
+            
+            for(auto& tri: input_mesh.vecTriangle) {
+                tri::Allocator<MeshType>::AddFace(output_mesh, tri.v0, tri.v1, tri.v2);
+            }
+            
+            tri::UpdateBounding<MeshType>::Box(output_mesh);
+            tri::UpdateNormal<MeshType>::PerFaceNormalized(output_mesh);
+            tri::UpdateNormal<MeshType>::PerVertexNormalized(output_mesh);            
+        }
+        
 
     /**
      * @brief ComputeBasis
      * @param MeshType &loops : reference to a mesh where the computed basis is going to be saved 
      * Function to invoke to compute a basis of handle and tunnel loops on the current mesh 
      */
-   void ComputeBasis(MeshType &loops) {
+   void ComputeBasis(MeshType &vcg_mesh, MeshType &loops, CallBackPos *cb=0) {
         Vector3 distinctDirection;
         // vectors of sets that will store basis loops for handles and tunnels
         psbmReebGraph reebGraph;
         std::vector<Vector3>   meshNormal;
         std::vector<int> OrientTriangles;
         std::set<int> extraVertices;
-        int nOrgTriangleSize = 0;
-        double BoundingBoxRadius;
         int genus = 0;
-        _SimpleMeshVertex minBd;
-        _SimpleMeshVertex maxBd;
-    
         // convert the vcg mesh in reebhantun _SimpleMesh
-        MeshConverter(minBd, maxBd, vcg_mesh, m_rht, meshNormal, OrientTriangles, _params.enlarge_factor);
-    
+        MeshConverter(vcg_mesh, m_rht, meshNormal, OrientTriangles, _params.enlarge_factor);
         // The mesh is in the right format 
         // Start ReebHanTun business
     
         m_rht.SetMeshNormalPtr(&meshNormal);
-    
-        // triangles in TRIS are in the same order as triangles in mesh.vecTriangle;
-        //
-        nOrgTriangleSize = m_rht.vecTriangle.size();
-        //
+        
         std::vector<std::vector<std::pair<int, int> > > meshBoundaries;
         if (CheckBoundaries(m_rht, meshBoundaries))
         {// it is a mesh with bondary
@@ -351,8 +316,6 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
         RandomUniqueDirection(m_rht, distinctDirection);
         reebGraph.ReserveSpaceForEdges(m_rht.vecEdge.size());
         double* scalarField = new double[m_rht.vecVertex.size()];
-        int perDir = 0;
-        int rayDir = 0;
         for (unsigned int i = 0; i < m_rht.vecVertex.size(); i++)
             {
                 scalarField[i] = m_rht.vecVertex[i].x * distinctDirection[0] +
@@ -393,44 +356,8 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
         else
             CycleLocalOptimization_bdry(m_rht, reebGraph, OrientTriangles, v_basis_loops, h_basis_loops, extraVertices, 1.f / _params.enlarge_factor);
         //
-            
-    
-        ///////////////////////////////////////////////////
-        std::cout << "Handle and tunnel loops written in files :  \n";
-        FilesOutputForOptimalCycles files_out_op;
-        std::string OutputFileName = "provaaaaaa";
-        files_out_op.InitMeshPtr(&m_rht);
-        files_out_op.WriteCyclesInformation(OutputFileName.c_str(), v_basis_loops, h_basis_loops);
-        int orgVertexSize = m_rht.vecVertex.size();
-        if (!extraVertices.empty())
-            orgVertexSize = *extraVertices.begin();
-        files_out_op.WriteGeomviewListFormat(OutputFileName.c_str(), v_basis_loops, h_basis_loops, OrientTriangles, orgVertexSize, nOrgTriangleSize, 1.f / _params.enlarge_factor);
-    
-        //MyMesh test;
-        //ReverseMeshConverter(m_rht, test);
-        //vcg::tri::io::ExporterOFF<MyMesh>::Save(test,"test.off");
-        //std::cout << "num edges: " << m_rht.vecEdge.size();
-        //std::cout << std::endl; 
-    
-        for (const auto& s : v_basis_loops) {
-            for (const auto& elem : s) {
-                std::cout << elem << " ";
-            }
-            std::cout << std::endl;  // new line after each set
-        }
-    
-        for (const auto& s : h_basis_loops) {
-            for (const auto& elem : s) {
-                std::cout << elem << " ";
-            }
-            std::cout << std::endl;  // new line after each set 
-        }
         
-        // now the basis has been computed for the current mesh
-        is_basis_computed = true;
-        // Update the Stats struct with the number of loops
-        _stats.handle_num = h_basis_loops.size();
-        _stats.tunnel_num = v_basis_loops.size();
+        
         
         for (const auto& s : v_basis_loops) {
             for (const auto& elem : s) {
@@ -442,8 +369,7 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
                 }
             }
         }
-        
-        
+                
         for (const auto& s : h_basis_loops) {
             for (const auto& elem : s) {
                 if(elem > 0 && elem < m_rht.vecEdge.size())
@@ -465,7 +391,7 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
      * return -1 if the basis hasn't been computed yet 
      */
     int GetNumHandleLoops() {
-        return _stats.handle_num;
+        return h_basis_loops.size();
     }
 
     /**
@@ -474,7 +400,7 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
      * return -1 if the basis hasn't been computed yet 
      */
     int GetNumTunnelLoops() {
-        return _stats.tunnel_num;
+        return v_basis_loops.size();
     }
 
 
@@ -485,11 +411,9 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
      * 
      * Get the computed loop
      */
-    void GetHandleLoops(MeshType &loop, int index=-1)
+    void GetHandleLoops(MeshType &vcg_mesh, MeshType &loop, int index=-1)
     {
-        if(is_basis_computed==false)
-            std::cout << "BASIS NOT COMPUTED FOR THE CURRENT MESH: INVOKE COMPUTEBASIS"  << std::endl;
-        else if(index==-1) {
+        if(index==-1) {
         for (const auto& s : h_basis_loops) {
             for (const auto& elem : s) {
                 if(elem > 0 && elem < m_rht.vecEdge.size())
@@ -515,11 +439,9 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
     else std::cout << "LOOP INDEX OUT OF BOUND"  << std::endl;
     }
     
-    void GetTunnelLoops(MeshType &loop, int index=-1)
+    void GetTunnelLoops(MeshType &vcg_mesh, MeshType &loop, int index=-1)
     {   
-        if(is_basis_computed==false)
-        std::cout << "BASIS NOT COMPUTED FOR THE CURRENT MESH: INVOKE COMPUTEBASIS"  << std::endl;
-        else if(index==-1) {
+        if(index==-1) {
             for (const auto& s : v_basis_loops) {
                 for (const auto& elem : s) {
                     if(elem > 0 && elem < m_rht.vecEdge.size())
@@ -538,7 +460,7 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
                 {
                     int v0 = m_rht.vecEdge[elem].v0;
                     int v1 = m_rht.vecEdge[elem].v1;         
-                    vcg::tri::Allocator<MeshType>::AddEdge(loop, vcg_mesh.vert[v0].P(),vcg_mesh.vert[v1].P());
+                    Allocator<MeshType>::AddEdge(loop, vcg_mesh.vert[v0].P(),vcg_mesh.vert[v1].P());
                 }
             }
         }
@@ -547,5 +469,6 @@ void MeshConverter (_SimpleMeshVertex &minBd, _SimpleMeshVertex &maxBd, const Me
 };
 
 
-
+}
+}
 #endif // REEBHANTUN_WRAPPER_H

@@ -483,7 +483,7 @@ char * strLicense = "THIS SOFTWARE IS PROVIDED \"AS-IS\". THERE IS NO WARRANTY O
 "conditions of the GNU Lesser General Public Library, which is stated "
 "below.  It can also be found at: \n"
 "\n"
-"   http:\//www.gnu.org/copyleft/lesser.html \n"
+"   http://www.gnu.org/copyleft/lesser.html \n"
 "---------------------------------------------------------------------------\n";
 //char * strLicense = "THIS SOFTWARE IS PROVIDED \"AS-IS\". http:\//www.gnu.org/copyleft/lesser.html THERE IS NO WARRANTY OF ANY KIND. \n";
 bool ParseCommand(int argc, char** argv, std::string &InputFile, std::string &OutputFile)
