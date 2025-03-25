@@ -14,6 +14,8 @@
 #undef main
 
 #include<vcg/complex/complex.h>
+#include <vcg/complex/algorithms/clean.h>
+#include<vcg/complex/algorithms/update/color.h>
 
 namespace vcg {
 namespace tri {
@@ -48,6 +50,9 @@ private:
     // after being computed bu the function ComputeBasis
     std::vector<std::set<int> > v_basis_loops;
     std::vector<std::set<int> > h_basis_loops;
+
+    // direction used to compute ReebGraph
+    vcg::Point3<RealTypeForVector3> directionReebGraph;
 
     // define the typedef for struct Params 
     typedef struct Params
@@ -221,9 +226,9 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
             rht_mesh.vecVertex[rht_mesh.vecEdge[i].v0].adjEdges.push_back(i);
             rht_mesh.vecVertex[rht_mesh.vecEdge[i].v1].adjEdges.push_back(i);
         }
-        std::cout << "Done... " << vcg_mesh.vert.size() << " " << vcg_mesh.face.size() << std::endl;
-        std::cout << "ver... " << rht_mesh.vecVertex.size() << " tri " << rht_mesh.vecTriangle.size()
-                  << " edge" << rht_mesh.vecEdge.size() << std::endl;
+        //std::cout << "Done... " << vcg_mesh.vert.size() << " " << vcg_mesh.face.size() << std::endl;
+        //std::cout << "ver... " << rht_mesh.vecVertex.size() << " tri " << rht_mesh.vecTriangle.size()
+        //         << " edge" << rht_mesh.vecEdge.size() << std::endl;
         //
         edgeMapping.clear();
         return;
@@ -281,6 +286,10 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
         std::vector<int> OrientTriangles;
         std::set<int> extraVertices;
         int genus = 0;
+
+        if (cb)
+            (*cb)(10, "Converting mesh format...");
+
         // convert the vcg mesh in reebhantun _SimpleMesh
         MeshConverter(vcg_mesh, m_rht, meshNormal, OrientTriangles, _params.enlarge_factor);
         // The mesh is in the right format 
@@ -314,6 +323,13 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
     
         // compute the bounding box
         RandomUniqueDirection(m_rht, distinctDirection);
+
+        // save the direction used to compute reeb graph in the class variables 
+        // Store computed distinctDirection into storedDirection
+        directionReebGraph.X() = distinctDirection[0];
+        directionReebGraph.Y() = distinctDirection[1];
+        directionReebGraph.Z() = distinctDirection[2];
+
         reebGraph.ReserveSpaceForEdges(m_rht.vecEdge.size());
         double* scalarField = new double[m_rht.vecVertex.size()];
         for (unsigned int i = 0; i < m_rht.vecVertex.size(); i++)
@@ -329,13 +345,19 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
         {
             // boost::progress_timer t;
             //
+            if (cb)
+                (*cb)(40, "Computing Reeb Graph...");
             reebGraph.ComputeReebGraph();
             //
         }
         {
             // boost::progress_timer t;
             ////
-            std::cout << "Time for mapping and linking :" << std::endl;
+            
+            if (cb)
+                (*cb)(70, "Generating loops...");
+
+            //std::cout << "Time for mapping and linking :" << std::endl;
             //reebGraph.ComputeCycleAndPairing();
             reebGraph.ComputingCycle_max_tree();
             ////
@@ -381,7 +403,15 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
             }
         }
         
+        if (cb)
+            (*cb)(100, "Computation finished!");
         
+    }
+
+
+    // Getter function to access the stored direction
+    vcg::Point3<RealTypeForVector3> GetStoredDirection() const {
+        return directionReebGraph;
     }
 
     
@@ -466,9 +496,59 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
         }
         else std::cout << "LOOP INDEX OUT OF BOUND"  << std::endl;
     }
+
+
+    /**
+     * @brief: Converts internal _SimpleMesh, used by ReebHanTun to compute the basis to a VCG mesh,
+     *        computes scalar field of the direction used to compute the Reeb Graph 
+     *        as vertex quality and maps it to color.
+     * @param: the reference to a VCG mesh where to save the converted mesh with quality-based coloring.
+    */
+    void GetColoredMeshByScalarField(MeshType & convertedMesh) {
+
+        // Convert from _SimpleMesh to VCG mesh
+        ReverseMeshConverter(m_rht, convertedMesh);
+
+        // Normalize the directionReebGraph
+        vcg::Point3<RealTypeForVector3> normDir = directionReebGraph;
+        normDir.Normalize(); // Ensure the direction vector is unit-length
+
+        // Compute scalar field as dot product and store in quality
+        RealTypeForVector3 minQ = std::numeric_limits<RealTypeForVector3>::max();
+        RealTypeForVector3 maxQ = std::numeric_limits<RealTypeForVector3>::lowest();
+
+        for (size_t i = 0; i < convertedMesh.vert.size(); ++i) {
+            vcg::Point3<RealTypeForVector3> pos = convertedMesh.vert[i].P(); // Vertex position coord.
+            // compute the scalar field as dot product between direction & vertex coord. 
+            RealTypeForVector3 scalar = normDir * pos;  
+
+            // Store scalar in quality field
+            convertedMesh.vert[i].Q() = scalar;  
+
+            // Track min/max values for normalization
+            if (scalar < minQ) minQ = scalar;
+            if (scalar > maxQ) maxQ = scalar;
+        }
+
+        // Normalize the quality values to [0,1]
+        for (size_t i = 0; i < convertedMesh.vert.size(); ++i) {
+            if (maxQ > minQ) {
+                convertedMesh.vert[i].Q() = (convertedMesh.vert[i].Q() - minQ) / (maxQ - minQ);
+            } else {
+                convertedMesh.vert[i].Q() = 0.5f;  // Default value if min == max (avoid division by zero)
+            }
+        }
+
+        // Map quality to vertex color
+        vcg::tri::UpdateColor<MeshType>::PerVertexQualityRamp(convertedMesh);
+   
+        std::cout << "Mesh successfully colored based on the scalar field." << std::endl;
+
+    }
 };
 
 
+
+
+
 }
-}
-#endif // REEBHANTUN_WRAPPER_H
