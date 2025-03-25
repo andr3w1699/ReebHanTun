@@ -552,3 +552,5 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
 
 
 }
+}
+#endif
