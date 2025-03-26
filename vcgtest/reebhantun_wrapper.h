@@ -74,7 +74,7 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
     std::map<std::pair<int, int>, int, myPairCompare> edgeMapping;
     // vertex conversion 
     // reserves space in the OrientTriangles vector to avoid reallocations.
-    OrientTriangles.reserve(vcg_mesh.face.size());
+    OrientTriangles.reserve(vcg_mesh.face.size()*3);
     // resize vecVertex of _SimpleMesh to store as many vertex as MeshType
     rht_mesh.vecVertex.reserve(vcg_mesh.vert.size());
     // vertex conversion loop 
@@ -88,25 +88,7 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
         tmpVer.z = v.P().Z() * fEnlargeFactor;
         rht_mesh.vecVertex.push_back(tmpVer);    
     }
-    
-    // edge conversion 
-    /*
-    std::map<std::pair<int, int>, int> edgeMap; 
-    for(size_t i = 0; i < vcg_mesh.face.size(); ++i) {
-        const MyFace &f = vcg_mesh.face[i];
-        for(int j = 0; j < 3; ++j) {
-            int v0 = vcg::tri::Index(vcg_mesh, f.V(j));
-            int v1 = vcg::tri::Index(vcg_mesh, f.V((j+1)%3));
-            if (v0 > v1) std::swap(v0, v1);
-    
-            std::pair<int, int> edgeKey = std::make_pair(v0, v1);
-            if(edgeMap.find(edgeKey)== edgeMap.end()) { 
-                edgeMap[edgeKey] = rht_mesh.vecEdge.size();
-                rht_mesh.vecEdge.push_back(_SimpleMeshEdge(v0,v1));
-            }
-        }
-    }
-        */
+      
     
     // triangle conversion 
     // reserves space in the vecTriangle vector of rht_mesh to store all triangles from vcg_mesh
@@ -232,18 +214,7 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
         //
         edgeMapping.clear();
         return;
-        /*
-        // v0 < v1 < v2
-        if (v0 > v1) std::swap(v0, v1);
-        if (v1 > v2) std::swap(v1, v2);
-        if (v0 > v1) std::swap(v0, v1);
-    
-        int e01 = edgeMap[std::make_pair(v0, v1)];
-        int e12 = edgeMap[std::make_pair(v1, v2)];
-        int e02 = edgeMap[std::make_pair(v0, v2)];
-    
-        rht_mesh.vecTriangle[i] = _SimpleMeshTriangle(v0, v1, v2, e01, e12, e02);
-        */
+        
     }
     
     public:
@@ -260,7 +231,7 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
             // Add vertices to the mesh
             // iterates over each vertex in input_mesh.vecVertex
             for(auto& p : input_mesh.vecVertex) {
-                tri::Allocator<MeshType>::AddVertex(output_mesh, CoordType(p.x, p.y, p.z));                
+                tri::Allocator<MeshType>::AddVertex(output_mesh, CoordType(p.x/_params.enlarge_factor, p.y/_params.enlarge_factor, p.z/_params.enlarge_factor));                
             }
             
             for(auto& tri: input_mesh.vecTriangle) {
@@ -321,7 +292,7 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
         std::cout << "Mesh has genus : " << genus << std::endl;
         //
     
-        // compute the bounding box
+        // 
         RandomUniqueDirection(m_rht, distinctDirection);
 
         // save the direction used to compute reeb graph in the class variables 
@@ -553,4 +524,4 @@ void MeshConverter (const MeshType & vcg_mesh,  _SimpleMesh & rht_mesh, std::vec
 
 }
 }
-#endif
+#endif // REEBHANTUN_WRAPPER_H
